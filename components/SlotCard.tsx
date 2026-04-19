@@ -25,15 +25,11 @@ export default function SlotCard({ slot, selected, onSelect }: Props) {
     >
       <div className={styles.date}>{formatDate(slot.date)}</div>
       <div className={styles.time}>{slot.time}</div>
-      {slot.title && <div className={styles.title}>{slot.title}</div>}
       <div className={styles.spots}>
         {slot.spotsRemaining === 1
           ? 'Залишилось 1 місце'
           : `Вільних місць: ${slot.spotsRemaining}`}
       </div>
-      {slot.price && (
-        <div className={styles.price}>{slot.price} грн</div>
-      )}
     </button>
   )
 }
