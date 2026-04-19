@@ -2,13 +2,15 @@ import { z } from 'zod'
 
 export const registrationSchema = z.object({
   slotId: z.string().min(1, 'Оберіть слот'),
-  name: z.string().min(2, 'Введіть ім\'я (мінімум 2 символи)').max(100),
+  name: z.string().min(2, 'Введіть ім\'я (мінімум 2 символи)').max(50),
+  surname: z.string().min(2, 'Введіть прізвище (мінімум 2 символи)').max(50),
   phone: z
     .string()
     .regex(
       /^\+?380\d{9}$|^0\d{9}$/,
-      'Введіть коректний номер телефону (наприклад: 0501234567)'
+      'Введіть коректний номер (наприклад: 0501234567)'
     ),
+  instagram: z.string().max(100).optional(),
   peopleCount: z
     .number({ invalid_type_error: 'Введіть кількість людей' })
     .int()

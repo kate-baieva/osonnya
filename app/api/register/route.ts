@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { registrationSchema } from '@/lib/validation'
-import { getSlotById, appendRegistration, incrementRegistered } from '@/lib/google-sheets'
+import { getSlotById, findOrCreateClient, appendOrder } from '@/lib/google-sheets'
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -18,15 +18,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { slotId, name, phone, peopleCount } = parsed.data
+  const { slotId, name, surname, phone, instagram, peopleCount } = parsed.data
 
-  // Re-fetch slot to confirm capacity is still available
-  const found = await getSlotById(slotId).catch(() => null)
-  if (!found) {
+  // Перевіряємо, що слот ще існує та має місця
+  const slot = await getSlotById(slotId).catch(() => null)
+  if (!slot) {
     return NextResponse.json({ error: 'Слот не знайдено або вже недоступний' }, { status: 404 })
   }
-
-  const { slot, rowIndex } = found
   if (slot.spotsRemaining < peopleCount) {
     return NextResponse.json(
       { error: `На цей майстер-клас залишилось лише ${slot.spotsRemaining} місць` },
@@ -35,16 +33,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await appendRegistration({
-      slotId,
-      slotDate: slot.date,
-      slotTime: slot.time,
-      name,
-      phone,
+    const clientFullName = await findOrCreateClient(name, surname, phone, instagram)
+    await appendOrder({
+      clientFullName,
+      mkDatetime: slot.datetime,
       peopleCount,
     })
-    // Increment once per registration (not per person)
-    await incrementRegistered(rowIndex)
   } catch (err) {
     console.error('[POST /api/register]', err)
     return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })

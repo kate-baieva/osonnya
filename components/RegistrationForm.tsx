@@ -55,16 +55,30 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
 
   return (
     <form className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
-      <div className={styles.field}>
-        <label htmlFor="name">Ім'я та прізвище</label>
-        <input
-          id="name"
-          type="text"
-          placeholder="Наприклад: Олена Коваль"
-          {...register('name')}
-          className={errors.name ? styles.inputError : ''}
-        />
-        {errors.name && <span className={styles.error}>{errors.name.message}</span>}
+      <div className={styles.row}>
+        <div className={styles.field}>
+          <label htmlFor="name">Ім'я</label>
+          <input
+            id="name"
+            type="text"
+            placeholder="Олена"
+            {...register('name')}
+            className={errors.name ? styles.inputError : ''}
+          />
+          {errors.name && <span className={styles.error}>{errors.name.message}</span>}
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="surname">Прізвище</label>
+          <input
+            id="surname"
+            type="text"
+            placeholder="Коваль"
+            {...register('surname')}
+            className={errors.surname ? styles.inputError : ''}
+          />
+          {errors.surname && <span className={styles.error}>{errors.surname.message}</span>}
+        </div>
       </div>
 
       <div className={styles.field}>
@@ -77,6 +91,20 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
           className={errors.phone ? styles.inputError : ''}
         />
         {errors.phone && <span className={styles.error}>{errors.phone.message}</span>}
+      </div>
+
+      <div className={styles.field}>
+        <label htmlFor="instagram">
+          Instagram <span className={styles.optional}>(необов'язково)</span>
+        </label>
+        <input
+          id="instagram"
+          type="text"
+          placeholder="@username або посилання"
+          {...register('instagram')}
+          className={errors.instagram ? styles.inputError : ''}
+        />
+        {errors.instagram && <span className={styles.error}>{errors.instagram.message}</span>}
       </div>
 
       <div className={styles.field}>
@@ -93,9 +121,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
           <span className={styles.error}>{errors.peopleCount.message}</span>
         )}
         {selectedSlot && (
-          <span className={styles.hint}>
-            Вільних місць: {selectedSlot.spotsRemaining}
-          </span>
+          <span className={styles.hint}>Вільних місць: {selectedSlot.spotsRemaining}</span>
         )}
       </div>
 
