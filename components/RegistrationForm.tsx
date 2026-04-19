@@ -1,0 +1,117 @@
+'use client'
+
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { registrationSchema, type RegistrationInput } from '@/lib/validation'
+import type { Slot } from '@/types'
+import styles from './RegistrationForm.module.css'
+
+interface Props {
+  selectedSlot: Slot | null
+  onSuccess: () => void
+}
+
+export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<RegistrationInput>({
+    resolver: zodResolver(registrationSchema),
+    defaultValues: { peopleCount: 1 },
+  })
+
+  const onSubmit = async (data: RegistrationInput) => {
+    if (!selectedSlot) return
+    setServerError(null)
+    setSubmitting(true)
+
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, slotId: selectedSlot.id }),
+      })
+      const json = await res.json()
+
+      if (!res.ok) {
+        setServerError(json.error ?? 'Сталася помилка. Спробуйте ще раз.')
+        return
+      }
+
+      reset()
+      onSuccess()
+    } catch {
+      setServerError('Немає з\'єднання з інтернетом. Перевірте з\'єднання і спробуйте ще раз.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
+      <div className={styles.field}>
+        <label htmlFor="name">Ім'я та прізвище</label>
+        <input
+          id="name"
+          type="text"
+          placeholder="Наприклад: Олена Коваль"
+          {...register('name')}
+          className={errors.name ? styles.inputError : ''}
+        />
+        {errors.name && <span className={styles.error}>{errors.name.message}</span>}
+      </div>
+
+      <div className={styles.field}>
+        <label htmlFor="phone">Номер телефону</label>
+        <input
+          id="phone"
+          type="tel"
+          placeholder="0501234567"
+          {...register('phone')}
+          className={errors.phone ? styles.inputError : ''}
+        />
+        {errors.phone && <span className={styles.error}>{errors.phone.message}</span>}
+      </div>
+
+      <div className={styles.field}>
+        <label htmlFor="peopleCount">Кількість людей</label>
+        <input
+          id="peopleCount"
+          type="number"
+          min={1}
+          max={selectedSlot?.spotsRemaining ?? 20}
+          {...register('peopleCount', { valueAsNumber: true })}
+          className={errors.peopleCount ? styles.inputError : ''}
+        />
+        {errors.peopleCount && (
+          <span className={styles.error}>{errors.peopleCount.message}</span>
+        )}
+        {selectedSlot && (
+          <span className={styles.hint}>
+            Вільних місць: {selectedSlot.spotsRemaining}
+          </span>
+        )}
+      </div>
+
+      {serverError && <p className={styles.serverError}>{serverError}</p>}
+
+      <button
+        type="submit"
+        className={styles.submit}
+        disabled={!selectedSlot || submitting}
+      >
+        {submitting ? 'Надсилаємо…' : 'Записатись'}
+      </button>
+
+      {!selectedSlot && (
+        <p className={styles.hint}>Спочатку оберіть слот вище</p>
+      )}
+    </form>
+  )
+}
