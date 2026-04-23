@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { registrationSchema } from '@/lib/validation'
+import { formSchema } from '@/lib/validation'
 import { getSlotById, findOrCreateClient, appendOrder } from '@/lib/google-sheets'
+import { createInvoice } from '@/lib/wayforpay'
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -10,26 +11,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Некоректний запит' }, { status: 400 })
   }
 
-  console.log('[POST /api/register] body:', JSON.stringify(body))
+  const slotId = (body as Record<string, unknown>)?.slotId as string | undefined
+  const parsed = formSchema.safeParse(body)
 
-  const parsed = registrationSchema.safeParse(body)
-  if (!parsed.success) {
-    console.log('[POST /api/register] ❌ валідація:', parsed.error.flatten().fieldErrors)
+  if (!parsed.success || !slotId) {
     return NextResponse.json(
-      { error: 'Помилка валідації', fields: parsed.error.flatten().fieldErrors },
+      { error: 'Помилка валідації', fields: parsed.success ? {} : parsed.error.flatten().fieldErrors },
       { status: 400 }
     )
   }
 
-  console.log('[POST /api/register] ✅ валідація пройшла')
-  const { slotId, name, surname, phone, instagram, peopleCount } = parsed.data
+  const { name, surname, phone, instagram, peopleCount } = parsed.data
 
-  const slot = await getSlotById(slotId).catch((e) => {
-    console.error('[POST /api/register] getSlotById error:', e)
-    return null
-  })
-  console.log('[POST /api/register] slot:', slot)
-
+  const slot = await getSlotById(slotId).catch(() => null)
   if (!slot) {
     return NextResponse.json({ error: 'Слот не знайдено або вже недоступний' }, { status: 404 })
   }
@@ -40,18 +34,33 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  try {
-    console.log('[POST /api/register] записую клієнта...')
-    const clientFullName = await findOrCreateClient(name, surname, phone, instagram)
-    console.log('[POST /api/register] клієнт:', clientFullName)
+  // Унікальний ідентифікатор замовлення для WayForPay
+  const orderReference = `osonnya_${Date.now()}`
 
-    console.log('[POST /api/register] записую замовлення...')
-    await appendOrder({ clientFullName, mkDatetime: slot.datetime, peopleCount })
-    console.log('[POST /api/register] ✅ успішно збережено')
+  try {
+    const clientFullName = await findOrCreateClient(name, surname, phone, instagram)
+    await appendOrder({
+      clientFullName,
+      mkDatetime: slot.datetime,
+      peopleCount,
+      orderReference,
+    })
   } catch (err) {
-    console.error('[POST /api/register] ❌ помилка збереження:', err)
+    console.error('[POST /api/register] ❌ збереження в таблицю:', err)
     return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, message: 'Реєстрацію підтверджено!' })
+  // Створюємо інвойс WayForPay
+  try {
+    const description = `Майстер-клас ${slot.date} о ${slot.time}`
+    const { invoiceUrl } = await createInvoice({ orderReference, description })
+    return NextResponse.json({ paymentUrl: invoiceUrl })
+  } catch (err) {
+    console.error('[POST /api/register] ❌ WayForPay invoice:', err)
+    // Запис в таблиці вже є — повертаємо помилку оплати окремо
+    return NextResponse.json(
+      { error: 'Запис збережено, але не вдалось створити посилання на оплату. Зверніться до нас.' },
+      { status: 500 }
+    )
+  }
 }

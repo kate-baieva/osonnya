@@ -169,11 +169,13 @@ export async function findOrCreateClient(
   return `${name} ${surname}`.trim()
 }
 
+// Повертає номер рядка, щоб вебхук міг оновити передоплату
 export async function appendOrder(data: {
   clientFullName: string
   mkDatetime: string
   peopleCount: number
-}): Promise<void> {
+  orderReference: string  // зберігаємо в Comment для пошуку з вебхука
+}): Promise<number> {
   const sheets = getSheets()
   const now = formatDateSheet(new Date())
   const nextRow = await findNextRow(config.sheets.orders, config.dataRows.orders)
@@ -187,22 +189,59 @@ export async function appendOrder(data: {
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
-        now,                    // A: Order DateTime
-        data.clientFullName,    // B: Client
-        '',                     // C: Amount
-        '',                     // D: Prepayment
-        '',                     // E: Prepay Date
-        '',                     // F: Prepay Account
-        'group',                // G: Type
-        data.mkDatetime,        // H: MK DateTime
-        data.peopleCount,         // I: # of People
-        '',                     // J: Afterpayment
-        '',                     // K: Afterpay Date
-        '',                     // L: Afterpay Account
-        '',                     // M: Certificate #
-        'booked',               // N: Status
-        '',                     // O: Comment
+        now,                   // A: Order DateTime
+        data.clientFullName,   // B: Client
+        '',                    // C: Amount
+        '',                    // D: Prepayment
+        '',                    // E: Prepay Date
+        '',                    // F: Prepay Account
+        'group',               // G: Type
+        data.mkDatetime,       // H: MK DateTime
+        data.peopleCount,      // I: # of People
+        '',                    // J: Afterpayment
+        '',                    // K: Afterpay Date
+        '',                    // L: Afterpay Account
+        '',                    // M: Certificate #
+        'booked',              // N: Status
+        data.orderReference,   // O: Comment — зберігаємо для вебхука
       ]],
+    },
+  })
+
+  return nextRow
+}
+
+// Знаходить рядок замовлення за orderReference (у колонці O — Comment)
+export async function findOrderRowByReference(orderReference: string): Promise<number | null> {
+  const sheets = getSheets()
+  const startRow = config.dataRows.orders
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: config.spreadsheetId,
+    range: `${config.sheets.orders}!O${startRow}:O`,
+  })
+
+  const rows = (res.data.values ?? []) as string[][]
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i]?.[0] ?? '').trim() === orderReference) {
+      return startRow + i
+    }
+  }
+  return null
+}
+
+// Заповнює передоплату після успішної оплати через WayForPay
+export async function updateOrderPrepayment(rowIndex: number, amount: number): Promise<void> {
+  const sheets = getSheets()
+  const payDate = formatDateSheet(new Date())
+
+  // D: Prepayment, E: Prepay Date, F: Prepay Account
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: config.spreadsheetId,
+    range: `${config.sheets.orders}!D${rowIndex}:F${rowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[amount, payDate, 'WayForPay']],
     },
   })
 }

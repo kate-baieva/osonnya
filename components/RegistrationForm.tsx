@@ -45,6 +45,12 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
         return
       }
 
+      // Перенаправляємо на сторінку оплати WayForPay
+      if (json.paymentUrl) {
+        window.location.href = json.paymentUrl
+        return
+      }
+
       reset()
       onSuccess()
     } catch {
@@ -144,7 +150,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
         disabled={!selectedSlot || submitting}
         onClick={() => console.log('[form] клік на кнопку, selectedSlot:', selectedSlot, 'errors:', errors)}
       >
-        {submitting ? 'Надсилаємо…' : 'Записатись'}
+        {submitting ? 'Надсилаємо…' : 'Записатись та оплатити'}
       </button>
 
       {!selectedSlot && (
