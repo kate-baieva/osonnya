@@ -3,11 +3,11 @@ import { config } from './config'
 import type { Slot } from '@/types'
 
 function getAuth() {
+  const raw = process.env.GOOGLE_CREDENTIALS ?? ''
+  if (!raw) throw new Error('GOOGLE_CREDENTIALS is not set')
+  const credentials = JSON.parse(raw)
   return new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    },
+    credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   })
 }
@@ -16,16 +16,27 @@ function getSheets() {
   return google.sheets({ version: 'v4', auth: getAuth() })
 }
 
-// "2025-02-15 15:30:00" → { date: "2025-02-15", time: "15:30" }
+// Підтримує формати:
+//   "2/15/2025 15:30:00"  (Google Sheets M/D/YYYY)
+//   "2025-02-15 15:30:00" (ISO-like)
 function parseDatetime(raw: string): { date: string; time: string } | null {
   if (!raw) return null
-  // Handle "2025-02-15 15:30:00" or ISO "2025-02-15T15:30:00"
-  const normalized = raw.trim().replace(' ', 'T')
+  const str = raw.trim()
+
+  // M/D/YYYY H:MM:SS  або  M/D/YYYY H:MM
+  const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/)
+  if (mdy) {
+    const [, month, day, year, hour, minute] = mdy
+    const date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    const time  = `${hour.padStart(2, '0')}:${minute}`
+    return { date, time }
+  }
+
+  // YYYY-MM-DD HH:MM:SS  або ISO
+  const normalized = str.replace(' ', 'T')
   const dt = new Date(normalized)
   if (isNaN(dt.getTime())) return null
-  const date = normalized.slice(0, 10)
-  const time = normalized.slice(11, 16)
-  return { date, time }
+  return { date: normalized.slice(0, 10), time: normalized.slice(11, 16) }
 }
 
 function rowToSlot(row: string[], rowIndex: number): Slot | null {
@@ -34,19 +45,29 @@ function rowToSlot(row: string[], rowIndex: number): Slot | null {
   const registeredRaw = (row[2] ?? '').trim()  // C: # of sign ups [auto]
   const eventId     = (row[3] ?? '').trim()    // D: EventId
 
-  const parsed = parseDatetime(datetimeRaw)
-  if (!parsed) return null
+  console.log(`[row ${rowIndex}] raw:`, { datetimeRaw, capacity, registeredRaw, eventId })
 
-  // Пропускаємо минулі слоти
+  const parsed = parseDatetime(datetimeRaw)
+  if (!parsed) {
+    console.log(`[row ${rowIndex}] ❌ не вдалось розпарсити дату: "${datetimeRaw}"`)
+    return null
+  }
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  if (new Date(parsed.date) < today) return null
+  if (new Date(parsed.date) < today) {
+    console.log(`[row ${rowIndex}] ❌ минула дата: ${parsed.date}`)
+    return null
+  }
 
-  // C може бути формулою-масивом — тоді вважаємо 0
   const registered = /^\d+$/.test(registeredRaw) ? Number(registeredRaw) : 0
   const spotsRemaining = capacity - registered
-  if (spotsRemaining <= 0) return null
+  if (spotsRemaining <= 0) {
+    console.log(`[row ${rowIndex}] ❌ немає місць: capacity=${capacity}, registered=${registered}`)
+    return null
+  }
 
+  console.log(`[row ${rowIndex}] ✅ слот: ${parsed.date} ${parsed.time}, місць: ${spotsRemaining}`)
   return {
     id: eventId || `row_${rowIndex}`,
     datetime: datetimeRaw,
@@ -61,12 +82,17 @@ function rowToSlot(row: string[], rowIndex: number): Slot | null {
 export async function getSlots(): Promise<Slot[]> {
   const sheets = getSheets()
   const startRow = config.dataRows.slots
+  const range = `${config.sheets.slots}!A${startRow}:D`
+  console.log(`[getSlots] читаю діапазон: "${range}"`)
+
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: config.spreadsheetId,
-    range: `${config.sheets.slots}!A${startRow}:D`,
+    range,
   })
 
   const rows = (res.data.values ?? []) as string[][]
+  console.log(`[getSlots] отримано рядків: ${rows.length}`)
+  if (rows.length > 0) console.log(`[getSlots] перший рядок:`, rows[0])
   return rows
     .map((row, i) => rowToSlot(row, startRow + i))
     .filter((s): s is Slot => s !== null)
@@ -75,6 +101,34 @@ export async function getSlots(): Promise<Slot[]> {
 export async function getSlotById(slotId: string): Promise<Slot | null> {
   const slots = await getSlots()
   return slots.find((s) => s.id === slotId) ?? null
+}
+
+// Формат MM/DD/YY HH:MM:SS (як в існуючих записах таблиці)
+function formatDateSheet(d: Date): string {
+  const mm  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd  = String(d.getDate()).padStart(2, '0')
+  const yy  = String(d.getFullYear()).slice(2)
+  const hh  = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  const ss  = String(d.getSeconds()).padStart(2, '0')
+  return `${mm}/${dd}/${yy} ${hh}:${min}:${ss}`
+}
+
+// Знаходить перший порожній рядок після останнього запису (ігнорує pre-formatted пусті рядки)
+async function findNextRow(sheetName: string, startRow: number): Promise<number> {
+  const sheets = getSheets()
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: config.spreadsheetId,
+    range: `${sheetName}!A${startRow}:A`,
+  })
+  const rows = (res.data.values ?? []) as string[][]
+  let lastFilled = startRow - 1
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i]?.[0] ?? '').trim() !== '') {
+      lastFilled = startRow + i
+    }
+  }
+  return lastFilled + 1
 }
 
 // Знаходить клієнта за телефоном або додає нового. Повертає повне ім'я.
@@ -101,12 +155,12 @@ export async function findOrCreateClient(
     }
   }
 
-  // Додаємо нового клієнта
-  await sheets.spreadsheets.values.append({
+  // Додаємо нового клієнта одразу після останнього запису
+  const nextRow = await findNextRow(config.sheets.clients, config.dataRows.clients)
+  await sheets.spreadsheets.values.update({
     spreadsheetId: config.spreadsheetId,
-    range: `${config.sheets.clients}!A:D`,
+    range: `${config.sheets.clients}!A${nextRow}:D${nextRow}`,
     valueInputOption: 'RAW',
-    insertDataOption: 'INSERT_ROWS',
     requestBody: {
       values: [[name, surname, phone, instagram ?? '']],
     },
@@ -121,16 +175,16 @@ export async function appendOrder(data: {
   peopleCount: number
 }): Promise<void> {
   const sheets = getSheets()
-  const now = new Date().toISOString()
+  const now = formatDateSheet(new Date())
+  const nextRow = await findNextRow(config.sheets.orders, config.dataRows.orders)
 
   // Колонки A–O: Order DateTime, Client, Amount, Prepayment, Prepay Date,
   // Prepay Account, Type, MK DateTime, # of People, Afterpayment,
   // Afterpay Date, Afterpay Account, Certificate #, Status, Comment
-  await sheets.spreadsheets.values.append({
+  await sheets.spreadsheets.values.update({
     spreadsheetId: config.spreadsheetId,
-    range: `${config.sheets.orders}!A:O`,
+    range: `${config.sheets.orders}!A${nextRow}:O${nextRow}`,
     valueInputOption: 'RAW',
-    insertDataOption: 'INSERT_ROWS',
     requestBody: {
       values: [[
         now,                    // A: Order DateTime
@@ -141,7 +195,7 @@ export async function appendOrder(data: {
         '',                     // F: Prepay Account
         'group',                // G: Type
         data.mkDatetime,        // H: MK DateTime
-        String(data.peopleCount), // I: # of People
+        data.peopleCount,         // I: # of People
         '',                     // J: Afterpayment
         '',                     // K: Afterpay Date
         '',                     // L: Afterpay Account

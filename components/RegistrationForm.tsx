@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { registrationSchema, type RegistrationInput } from '@/lib/validation'
+import { formSchema, type FormInput } from '@/lib/validation'
 import type { Slot } from '@/types'
 import styles from './RegistrationForm.module.css'
 
@@ -21,12 +21,13 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<RegistrationInput>({
-    resolver: zodResolver(registrationSchema),
+  } = useForm<FormInput>({
+    resolver: zodResolver(formSchema),
     defaultValues: { peopleCount: 1 },
   })
 
-  const onSubmit = async (data: RegistrationInput) => {
+  const onSubmit = async (data: FormInput) => {
+    console.log('[form] onSubmit викликано, data:', data, 'selectedSlot:', selectedSlot)
     if (!selectedSlot) return
     setServerError(null)
     setSubmitting(true)
@@ -54,7 +55,17 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
+    <form
+      className={styles.form}
+      onSubmit={(e) => {
+        console.log('[form] submit подія')
+        handleSubmit(
+          (data) => { console.log('[form] ✅ валідація ок, data:', data); return onSubmit(data) },
+          (errs) => { console.log('[form] ❌ помилки валідації:', Object.fromEntries(Object.entries(errs).map(([k,v]) => [k, (v as any)?.message]))) }
+        )(e)
+      }}
+      noValidate
+    >
       <div className={styles.row}>
         <div className={styles.field}>
           <label htmlFor="name">Ім'я</label>
@@ -131,6 +142,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
         type="submit"
         className={styles.submit}
         disabled={!selectedSlot || submitting}
+        onClick={() => console.log('[form] клік на кнопку, selectedSlot:', selectedSlot, 'errors:', errors)}
       >
         {submitting ? 'Надсилаємо…' : 'Записатись'}
       </button>

@@ -8,6 +8,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .field {
@@ -23,6 +24,9 @@
 }
 
 .field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 0.7rem 1rem;
   border: 1.5px solid #d8cec5;
   border-radius: 8px;
