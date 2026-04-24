@@ -54,7 +54,7 @@ export async function createInvoice(params: {
     apiVersion:         1,
     language:           'UA',
     serviceUrl:         `${baseUrl}/api/webhook/wayforpay`,
-    returnUrl:          `${baseUrl}/success`,
+    returnUrl:          `${baseUrl}/api/payment/return`,
     orderReference,
     orderDate,
     amount,
