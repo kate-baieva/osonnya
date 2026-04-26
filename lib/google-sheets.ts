@@ -44,6 +44,7 @@ function rowToSlot(row: string[], rowIndex: number): Slot | null {
   const capacity    = Number(row[1] ?? 0)      // B: Capacity
   const registeredRaw = (row[2] ?? '').trim()  // C: # of sign ups [auto]
   const eventId     = (row[3] ?? '').trim()    // D: EventId
+  const title       = (row[4] ?? '').trim()    // E: Name
 
   console.log(`[row ${rowIndex}] raw:`, { datetimeRaw, capacity, registeredRaw, eventId })
 
@@ -73,6 +74,7 @@ function rowToSlot(row: string[], rowIndex: number): Slot | null {
     datetime: datetimeRaw,
     date: parsed.date,
     time: parsed.time,
+    title,
     capacity,
     registered,
     spotsRemaining,
@@ -82,7 +84,7 @@ function rowToSlot(row: string[], rowIndex: number): Slot | null {
 export async function getSlots(): Promise<Slot[]> {
   const sheets = getSheets()
   const startRow = config.dataRows.slots
-  const range = `${config.sheets.slots}!A${startRow}:D`
+  const range = `${config.sheets.slots}!A${startRow}:E`
   console.log(`[getSlots] читаю діапазон: "${range}"`)
 
   const res = await sheets.spreadsheets.values.get({

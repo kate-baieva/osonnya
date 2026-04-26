@@ -52,7 +52,7 @@ function HomeContent() {
 
   // Заголовок залежить від режиму
   const subtitle = preselectedId && visibleSlots[0]
-    ? `${formatDate(visibleSlots[0].date)} о ${visibleSlots[0].time}`
+    ? [visibleSlots[0].title, `${formatDate(visibleSlots[0].date)} о ${visibleSlots[0].time}`].filter(Boolean).join(' · ')
     : 'Оберіть зручний час і заповніть форму — ми отримаємо ваш запис автоматично'
 
   return (

@@ -23,6 +23,7 @@ export default function SlotCard({ slot, selected, onSelect }: Props) {
       onClick={() => onSelect(slot.id)}
       aria-pressed={selected}
     >
+      {slot.title && <div className={styles.title}>{slot.title}</div>}
       <div className={styles.date}>{formatDate(slot.date)}</div>
       <div className={styles.time}>{slot.time}</div>
       <div className={styles.spots}>

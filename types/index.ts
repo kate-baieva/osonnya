@@ -3,6 +3,7 @@ export interface Slot {
   datetime: string  // оригінальний рядок "2025-02-15 15:30:00" для запису в таблицю
   date: string      // "2025-02-15"
   time: string      // "15:30"
+  title: string     // назва майстер-класу (колонка E)
   capacity: number
   registered: number
   spotsRemaining: number
