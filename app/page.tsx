@@ -59,7 +59,15 @@ function HomeContent() {
     <main className={styles.main}>
       <header className={styles.header}>
         <img src="/logo.svg" alt="Osonnya" className={styles.logo} />
-        <p className={styles.subtitle}>{subtitle}</p>
+        {preselectedId ? (
+          <p className={styles.subtitle}>{subtitle}</p>
+        ) : (
+          <>
+            <h1 className={styles.heading}>Запис на майстер-клас із ліплення з глини</h1>
+            <p className={styles.subtitle}>Раді вітати вас в Осонні! Оберіть зручний день та час майстер-класу. Після заповнення форми вас перенаправить на сторінку внесення передоплати.</p>
+            <p className={styles.disclaimer}>Ми повернемо вам передоплату у випадку завчасної відміни запису (до 18:00 за день до майстер-класу), або у випадку форс-мажорів. Для уточнення зверніться, будь ласка, в дірект інстаграму @osonnya.ceramics.</p>
+          </>
+        )}
       </header>
 
       {success ? (
