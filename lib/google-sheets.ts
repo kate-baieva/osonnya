@@ -171,12 +171,82 @@ export async function findOrCreateClient(
   return `${name} ${surname}`.trim()
 }
 
+// ─── Сертифікати ────────────────────────────────────────────────────────────
+
+export interface CertificateInfo {
+  rowIndex: number
+  code: string
+  peopleCount: number
+  type: string
+  expiresAt: Date
+}
+
+export async function validateCertificate(code: string): Promise<
+  | { valid: true; info: CertificateInfo }
+  | { valid: false; reason: string }
+> {
+  const sheets = getSheets()
+  const startRow = config.dataRows.certificates
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: config.spreadsheetId,
+    range: `${config.sheets.certificates}!A${startRow}:J`,
+  })
+
+  const rows = (res.data.values ?? []) as string[][]
+  const trimmed = code.trim()
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const certCode = (row[6] ?? '').trim()  // G: номер сертифікату
+    if (certCode !== trimmed) continue
+
+    const usedRaw = (row[9] ?? '').trim()   // J: чекбокс (TRUE/FALSE)
+    if (usedRaw === 'TRUE' || usedRaw === 'true' || usedRaw === '1') {
+      return { valid: false, reason: 'Цей сертифікат вже використано' }
+    }
+
+    const expiryRaw = (row[4] ?? '').trim() // E: термін дії MM/DD/YYYY
+    const [month, day, year] = expiryRaw.split('/').map(Number)
+    const expiresAt = new Date(year, month - 1, day, 23, 59, 59, 999)
+    if (isNaN(expiresAt.getTime())) {
+      return { valid: false, reason: 'Не вдалося перевірити термін дії сертифікату' }
+    }
+    if (expiresAt < new Date()) {
+      return { valid: false, reason: 'Термін дії сертифікату закінчився' }
+    }
+
+    const peopleCount = Number(row[3] ?? 1) // D: кількість учасників
+    const type = (row[5] ?? '').trim()       // F: тип МК
+
+    return {
+      valid: true,
+      info: { rowIndex: startRow + i, code: certCode, peopleCount, type, expiresAt },
+    }
+  }
+
+  return { valid: false, reason: 'Сертифікат не знайдено' }
+}
+
+export async function redeemCertificate(rowIndex: number): Promise<void> {
+  const sheets = getSheets()
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: config.spreadsheetId,
+    range: `${config.sheets.certificates}!J${rowIndex}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [['TRUE']] },
+  })
+}
+
+// ─── Замовлення ──────────────────────────────────────────────────────────────
+
 // Повертає номер рядка, щоб вебхук міг оновити передоплату
 export async function appendOrder(data: {
   clientFullName: string
   mkDatetime: string
   peopleCount: number
   orderReference: string  // зберігаємо в Comment для пошуку з вебхука
+  status?: string         // 'booked' (default) або 'certificate'
 }): Promise<number> {
   const sheets = getSheets()
   const now = formatDateSheet(new Date())
@@ -203,9 +273,9 @@ export async function appendOrder(data: {
         '',                    // J: Afterpayment
         '',                    // K: Afterpay Date
         '',                    // L: Afterpay Account
-        '',                    // M: Certificate #
-        'booked',              // N: Status
-        data.orderReference,   // O: Comment — зберігаємо для вебхука
+        '',                           // M: Certificate #
+        data.status ?? 'booked',      // N: Status
+        data.orderReference,          // O: Comment — зберігаємо для вебхука
       ]],
     },
   })
