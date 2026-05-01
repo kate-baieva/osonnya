@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     // ── Сертифікат + доплата за додаткових учасників ─────────────────────
     if (extraCount > 0) {
-      const extraAmount = extraCount * PREPAYMENT_AMOUNT_PER_PERSON
+      const extraAmount = PREPAYMENT_AMOUNT_PER_PERSON // фіксована передоплата 650 грн
       const orderReference = `osonnya_${Date.now()}`
 
       try {

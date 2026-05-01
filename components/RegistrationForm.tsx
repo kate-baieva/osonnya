@@ -48,7 +48,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
   // Скільки людей покриває сертифікат і скільки треба доплатити
   const certCovers  = certVal.status === 'valid' ? (certVal.peopleCount ?? 0) : 0
   const extraCount  = certCovers > 0 ? Math.max(0, peopleCount - certCovers) : 0
-  const extraAmount = extraCount * PREPAYMENT_PER_PERSON
+  const extraAmount = PREPAYMENT_PER_PERSON // фіксована передоплата 650 грн незалежно від кількості
   const isMixed     = certVal.status === 'valid' && extraCount > 0
 
   const checkCertificate = async () => {
@@ -279,11 +279,10 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
               <p>
                 Сертифікат {certCode} діє на {certVal.peopleCount}{' '}
                 {certVal.peopleCount === 1 ? 'учасника' : 'учасників'}.
-                Вартість участі додаткових учасників — {PREPAYMENT_PER_PERSON} грн за людину.
+                Вартість участі додаткових учасників — {PREPAYMENT_PER_PERSON} грн.
               </p>
               <p className={styles.mixedPayLine}>
-                Внесіть, будь ласка, передоплату за {extraCount} додатк.{' '}
-                {extraCount === 1 ? 'учасника' : 'учасників'} —{' '}
+                Внесіть, будь ласка, передоплату за додаткових учасників —{' '}
                 <strong>{extraAmount} грн</strong>.
               </p>
             </div>
