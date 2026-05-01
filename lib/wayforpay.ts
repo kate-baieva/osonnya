@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 const WAYFORPAY_API = 'https://api.wayforpay.com/api'
-const PREPAYMENT_AMOUNT = 650
+export const PREPAYMENT_AMOUNT_PER_PERSON = 650
 
 function hmacMd5(str: string, key: string): string {
   return crypto.createHmac('md5', key).update(str).digest('hex')
@@ -20,6 +20,7 @@ export interface InvoiceResult {
 export async function createInvoice(params: {
   orderReference: string
   description: string        // наприклад "Майстер-клас 25.04.2026 12:00"
+  amount?: number            // за замовчуванням PREPAYMENT_AMOUNT_PER_PERSON
 }): Promise<InvoiceResult> {
   const merchantAccount   = process.env.WAYFORPAY_MERCHANT_ACCOUNT!
   const merchantDomain    = process.env.WAYFORPAY_MERCHANT_DOMAIN!
@@ -27,7 +28,7 @@ export async function createInvoice(params: {
   const { orderReference, description } = params
 
   const orderDate   = Math.floor(Date.now() / 1000)
-  const amount      = PREPAYMENT_AMOUNT
+  const amount      = params.amount ?? PREPAYMENT_AMOUNT_PER_PERSON
   const currency    = 'UAH'
   const productName = description
   const productCount = 1

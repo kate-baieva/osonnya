@@ -245,8 +245,9 @@ export async function appendOrder(data: {
   clientFullName: string
   mkDatetime: string
   peopleCount: number
-  orderReference: string  // зберігаємо в Comment для пошуку з вебхука
-  status?: string         // 'booked' (default) або 'certificate'
+  orderReference: string   // зберігаємо в Comment для пошуку з вебхука
+  status?: string          // 'booked' (default) | 'certificate' | 'cert+payment'
+  certificateCode?: string // зберігаємо в Certificate # (M) для вебхука
 }): Promise<number> {
   const sheets = getSheets()
   const now = formatDateSheet(new Date())
@@ -273,7 +274,7 @@ export async function appendOrder(data: {
         '',                    // J: Afterpayment
         '',                    // K: Afterpay Date
         '',                    // L: Afterpay Account
-        '',                           // M: Certificate #
+        data.certificateCode ?? '',    // M: Certificate # — для вебхука при змішаній оплаті
         data.status ?? 'booked',      // N: Status
         data.orderReference,          // O: Comment — зберігаємо для вебхука
       ]],
@@ -284,19 +285,27 @@ export async function appendOrder(data: {
 }
 
 // Знаходить рядок замовлення за orderReference (у колонці O — Comment)
-export async function findOrderRowByReference(orderReference: string): Promise<number | null> {
+// Також повертає код сертифікату з колонки M (якщо є) — для вебхука
+export async function findOrderRowByReference(
+  orderReference: string
+): Promise<{ rowIndex: number; certificateCode: string } | null> {
   const sheets = getSheets()
   const startRow = config.dataRows.orders
 
+  // Читаємо M:O — Certificate # (M, idx 0), Status (N, idx 1), Comment (O, idx 2)
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: config.spreadsheetId,
-    range: `${config.sheets.orders}!O${startRow}:O`,
+    range: `${config.sheets.orders}!M${startRow}:O`,
   })
 
   const rows = (res.data.values ?? []) as string[][]
   for (let i = 0; i < rows.length; i++) {
-    if ((rows[i]?.[0] ?? '').trim() === orderReference) {
-      return startRow + i
+    const comment = (rows[i]?.[2] ?? '').trim()  // O: orderReference
+    if (comment === orderReference) {
+      return {
+        rowIndex: startRow + i,
+        certificateCode: (rows[i]?.[0] ?? '').trim(), // M: Certificate #
+      }
     }
   }
   return null

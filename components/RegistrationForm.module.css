@@ -209,3 +209,25 @@
   color: #c00;
   margin: 0;
 }
+
+/* Блок змішаної оплати: сертифікат + доплата */
+.mixedNotice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 1px solid #e8d8c4;
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.mixedNotice p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #5a3e28;
+  line-height: 1.5;
+}
+
+.mixedPayLine {
+  color: #7a5230 !important;
+  font-size: 0.9rem !important;
+}

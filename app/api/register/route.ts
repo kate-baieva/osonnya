@@ -7,7 +7,7 @@ import {
   validateCertificate,
   redeemCertificate,
 } from '@/lib/google-sheets'
-import { createInvoice } from '@/lib/wayforpay'
+import { createInvoice, PREPAYMENT_AMOUNT_PER_PERSON } from '@/lib/wayforpay'
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // ─── Оплата сертифікатом ──────────────────────────────────────────────────
+  // ─── Оплата сертифікатом (можливо з доплатою) ────────────────────────────
   if (certificateCode) {
     let certResult: Awaited<ReturnType<typeof validateCertificate>>
     try {
@@ -54,13 +54,48 @@ export async function POST(req: NextRequest) {
     if (!certResult.valid) {
       return NextResponse.json({ error: certResult.reason }, { status: 400 })
     }
-    if (certResult.info.peopleCount < peopleCount) {
-      return NextResponse.json(
-        { error: `Сертифікат розрахований на ${certResult.info.peopleCount} учасн.` },
-        { status: 400 }
-      )
+
+    const certCovers = certResult.info.peopleCount
+    const extraCount = peopleCount - certCovers
+
+    if (extraCount < 0) {
+      // Сертифікат покриває більше — просто використовуємо його
     }
 
+    // ── Сертифікат + доплата за додаткових учасників ─────────────────────
+    if (extraCount > 0) {
+      const extraAmount = extraCount * PREPAYMENT_AMOUNT_PER_PERSON
+      const orderReference = `osonnya_${Date.now()}`
+
+      try {
+        const clientFullName = await findOrCreateClient(name, surname, phone, instagram)
+        await appendOrder({
+          clientFullName,
+          mkDatetime: slot.datetime,
+          peopleCount,
+          orderReference,
+          status: 'cert+payment',
+          certificateCode, // зберігаємо для вебхука — він погасить після оплати
+        })
+      } catch (err) {
+        console.error('[POST /api/register] ❌ cert+payment save:', err)
+        return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
+      }
+
+      try {
+        const description = `Передоплата ${extraCount} дод. учасн. · МК ${slot.date} о ${slot.time}`
+        const { invoiceUrl } = await createInvoice({ orderReference, description, amount: extraAmount })
+        return NextResponse.json({ paymentUrl: invoiceUrl })
+      } catch (err) {
+        console.error('[POST /api/register] ❌ WayForPay cert+payment invoice:', err)
+        return NextResponse.json(
+          { error: 'Запис збережено, але не вдалось створити посилання на оплату. Зверніться до нас.' },
+          { status: 500 }
+        )
+      }
+    }
+
+    // ── Лише сертифікат (без доплати) ────────────────────────────────────
     try {
       const clientFullName = await findOrCreateClient(name, surname, phone, instagram)
       await appendOrder({
