@@ -73,8 +73,26 @@ function HomeContent() {
       {success ? (
         <div className={styles.successBox}>
           <div className={styles.successIcon}>✓</div>
-          <h2>Дякуємо!</h2>
-          <p>Ваш запис прийнято. Ми зв'яжемося з вами для підтвердження.</p>
+          <h2 className={styles.successHeading}>
+            Дякуємо за реєстрацію на майстер-клас!<br />
+            Із нетерпінням чекаємо на вас в Осонні
+          </h2>
+          <p className={styles.successAddress}>
+            Студія «Осоння» знаходиться за адресою:<br />
+            <strong>місто Суми, проспект Свободи, 14</strong>
+          </p>
+          <p className={styles.successLocation}>
+            У збережених історіях «Локація» на нашій сторінці в інстаграм ви знайдете більше
+            деталей, як знайти вхід до студії.
+          </p>
+          <a
+            href="https://www.instagram.com/stories/highlights/18321951592248393/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.igLink}
+          >
+            Відкрити локацію в Instagram →
+          </a>
           <button className={styles.resetBtn} onClick={() => setSuccess(false)}>
             Записати ще когось
           </button>

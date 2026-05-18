@@ -80,34 +80,68 @@
   text-align: center;
   background: #fff;
   border-radius: 16px;
-  padding: 3rem 2rem;
+  padding: 2.5rem 2rem;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  max-width: 440px;
+  max-width: 500px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .successIcon {
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
   background: #e8f5e9;
   color: #388e3c;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  margin: 0 auto 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
-.successBox h2 {
-  font-size: 1.5rem;
-  margin-bottom: 0.75rem;
+.successHeading {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #2d1f0f;
+  line-height: 1.35;
+  margin-bottom: 1.25rem;
 }
 
-.successBox p {
+.successAddress {
+  color: #2d1f0f;
+  font-size: 1rem;
+  line-height: 1.55;
+  margin-bottom: 0.85rem;
+}
+
+.successLocation {
   color: #6b5040;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.1rem;
+}
+
+.igLink {
+  display: inline-block;
+  background: #fdf6ee;
+  border: 1.5px solid #e8d8c4;
+  color: #9b6b3a;
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 0.6rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
   margin-bottom: 1.5rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.igLink:hover {
+  background: #f5e9d8;
+  border-color: #c8a882;
 }
 
 .resetBtn {
