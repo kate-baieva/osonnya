@@ -263,8 +263,8 @@ export async function appendOrder(data: {
     requestBody: {
       values: [[
         now,                   // A: Order DateTime
-        data.clientFullName,   // B: Client
-        '',                    // C: Amount
+        data.clientFullName,               // B: Client
+        data.peopleCount * 650,            // C: Amount (650 грн × кількість учасників)
         '',                    // D: Prepayment
         '',                    // E: Prepay Date
         '',                    // F: Prepay Account
