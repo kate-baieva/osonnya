@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyWebhookSignature, buildWebhookResponse } from '@/lib/wayforpay'
-import { findOrderRowByReference, updateOrderPrepayment, validateCertificate, redeemCertificate } from '@/lib/google-sheets'
+import {
+  verifyWebhookSignature,
+  buildWebhookResponse,
+  decodeOrderData,
+} from '@/lib/wayforpay'
+import {
+  findOrCreateClient,
+  appendOrder,
+  updateOrderPrepayment,
+  redeemCertificate,
+  findOrderRowByReference,
+} from '@/lib/google-sheets'
 
 export async function POST(req: NextRequest) {
   let payload: Record<string, unknown>
@@ -12,7 +22,6 @@ export async function POST(req: NextRequest) {
 
   console.log('[webhook/wayforpay] payload:', payload)
 
-  // Перевіряємо підпис
   if (!verifyWebhookSignature(payload)) {
     console.error('[webhook/wayforpay] ❌ невірний підпис')
     return NextResponse.json({ error: 'invalid signature' }, { status: 400 })
@@ -24,39 +33,49 @@ export async function POST(req: NextRequest) {
 
   console.log(`[webhook/wayforpay] orderReference=${orderReference}, status=${transactionStatus}, amount=${paidAmount}`)
 
-  // Обробляємо тільки успішні оплати
   if (transactionStatus === 'Approved') {
     try {
-      const found = await findOrderRowByReference(orderReference)
-      if (found) {
-        const { rowIndex, certificateCode } = found
+      const orderData = decodeOrderData(orderReference)
 
-        // Записуємо передоплату (фактичну суму з WayForPay)
+      if (orderData) {
+        // ── Новий формат: всі дані закодовані в orderReference ──────────
+        console.log('[webhook/wayforpay] декодовано дані замовлення:', orderData)
+
+        const clientFullName = await findOrCreateClient(
+          orderData.n, orderData.s, orderData.p, orderData.i || undefined
+        )
+
+        const rowIndex = await appendOrder({
+          clientFullName,
+          mkDatetime: orderData.d,
+          peopleCount: orderData.c,
+          orderReference,
+          status: orderData.st === 'cert+payment' ? 'certificate' : 'booked',
+        })
+
         await updateOrderPrepayment(rowIndex, paidAmount)
-        console.log(`[webhook/wayforpay] ✅ передоплату записано, рядок ${rowIndex}, сума ${paidAmount}`)
+        console.log(`[webhook/wayforpay] ✅ замовлення збережено: рядок ${rowIndex}, сума ${paidAmount}`)
 
-        // Якщо замовлення має сертифікат (cert+payment) — погашаємо його
-        if (certificateCode) {
-          try {
-            const certResult = await validateCertificate(certificateCode)
-            if (certResult.valid) {
-              await redeemCertificate(certResult.info.rowIndex)
-              console.log(`[webhook/wayforpay] ✅ сертифікат погашено: ${certificateCode}`)
-            } else {
-              console.warn(`[webhook/wayforpay] ⚠️ сертифікат вже використано або недійсний: ${certificateCode}`)
-            }
-          } catch (err) {
-            console.error('[webhook/wayforpay] ❌ помилка погашення сертифікату:', err)
-          }
+        // Якщо cert+payment — погашаємо сертифікат
+        if (orderData.cert && orderData.cri) {
+          await redeemCertificate(orderData.cri)
+          console.log(`[webhook/wayforpay] ✅ сертифікат погашено: ${orderData.cert}`)
         }
       } else {
-        console.warn(`[webhook/wayforpay] ⚠️ замовлення не знайдено: ${orderReference}`)
+        // ── Запасний варіант для старих замовлень ───────────────────────
+        console.log('[webhook/wayforpay] старий формат orderReference, шукаємо в таблиці')
+        const found = await findOrderRowByReference(orderReference)
+        if (found !== null) {
+          await updateOrderPrepayment(found.rowIndex, paidAmount)
+          console.log(`[webhook/wayforpay] ✅ (legacy) передоплату записано, рядок ${found.rowIndex}`)
+        } else {
+          console.warn(`[webhook/wayforpay] ⚠️ замовлення не знайдено: ${orderReference}`)
+        }
       }
     } catch (err) {
-      console.error('[webhook/wayforpay] ❌ помилка оновлення таблиці:', err)
+      console.error('[webhook/wayforpay] ❌ помилка обробки:', err)
     }
   }
 
-  // WayForPay вимагає підтвердження отримання вебхука
   return NextResponse.json(buildWebhookResponse(orderReference))
 }

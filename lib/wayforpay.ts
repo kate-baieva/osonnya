@@ -98,6 +98,40 @@ export function verifyWebhookSignature(payload: Record<string, unknown>): boolea
   return expected === payload.merchantSignature
 }
 
+// ─── Кодування даних замовлення в orderReference ─────────────────────────────
+// Дані клієнта і замовлення кодуємо в base64url прямо в рядку orderReference.
+// Таблиця не чіпається до підтвердження оплати — все записується у вебхуку.
+
+export interface PendingOrderData {
+  n: string    // name
+  s: string    // surname
+  p: string    // phone
+  i: string    // instagram ('' якщо немає)
+  c: number    // peopleCount
+  d: string    // mkDatetime
+  st: string   // status: 'booked' | 'cert+payment'
+  cert?: string // certificateCode (тільки для cert+payment)
+  cri?: number  // certRowIndex (тільки для cert+payment)
+}
+
+export function encodeOrderData(data: PendingOrderData): string {
+  const encoded = Buffer.from(JSON.stringify(data)).toString('base64url')
+  return `osonnya_${encoded}`
+}
+
+export function decodeOrderData(orderReference: string): PendingOrderData | null {
+  const prefix = 'osonnya_'
+  if (!orderReference.startsWith(prefix)) return null
+  const encoded = orderReference.slice(prefix.length)
+  // Старий формат — просто timestamp: "1234567890"
+  if (/^\d+$/.test(encoded)) return null
+  try {
+    return JSON.parse(Buffer.from(encoded, 'base64url').toString()) as PendingOrderData
+  } catch {
+    return null
+  }
+}
+
 // Відповідь яку WayForPay очікує після отримання вебхука
 export function buildWebhookResponse(orderReference: string): object {
   const key    = process.env.WAYFORPAY_SECRET_KEY!
