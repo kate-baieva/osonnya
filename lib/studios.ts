@@ -6,8 +6,8 @@ export interface StudioInfo {
   instagramHandle: string
   instagramHighlightsUrl: string
   pricePerPerson: number
-  basePath: string    // '/' для Сум, '/if' для ІФ
-  successPath: string // '/success' для Сум, '/if/success' для ІФ
+  basePath: string    // '/sumy' або '/if'
+  successPath: string // '/sumy/success' або '/if/success'
 }
 
 export const STUDIOS: Record<string, StudioInfo> = {
@@ -19,8 +19,8 @@ export const STUDIOS: Record<string, StudioInfo> = {
     instagramHandle: '@osonnya.ceramics',
     instagramHighlightsUrl: 'https://www.instagram.com/stories/highlights/18321951592248393/',
     pricePerPerson: 650,
-    basePath: '/',
-    successPath: '/success',
+    basePath: '/sumy',
+    successPath: '/sumy/success',
   },
   if: {
     id: 'if',

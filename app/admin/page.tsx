@@ -39,8 +39,8 @@ function StudioSection({ studio, origin }: { studio: StudioInfo; origin: string 
       .finally(() => setLoading(false))
   }, [studio.id])
 
-  const basePath = studio.basePath === '/' ? '' : studio.basePath
-  const generalLink = `${origin}${basePath}/`
+  const basePath = studio.basePath  // '/sumy' або '/if'
+  const generalLink = `${origin}${basePath}`
 
   return (
     <div className={styles.studioBlock}>
@@ -66,7 +66,7 @@ function StudioSection({ studio, origin }: { studio: StudioInfo; origin: string 
 
         <div className={styles.slotList}>
           {slots.map((slot) => {
-            const url = `${origin}${basePath}/?slot=${encodeURIComponent(slot.id)}`
+            const url = `${origin}${basePath}?slot=${encodeURIComponent(slot.id)}`
             return (
               <div key={slot.id} className={styles.slotRow}>
                 <div className={styles.slotInfo}>
