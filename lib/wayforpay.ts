@@ -19,13 +19,15 @@ export interface InvoiceResult {
 
 export async function createInvoice(params: {
   orderReference: string
-  description: string        // наприклад "Майстер-клас 25.04.2026 12:00"
-  amount?: number            // за замовчуванням PREPAYMENT_AMOUNT_PER_PERSON
+  description: string
+  amount?: number
+  returnUrl?: string  // студія-специфічний URL; якщо немає — /api/payment/return
 }): Promise<InvoiceResult> {
   const merchantAccount   = process.env.WAYFORPAY_MERCHANT_ACCOUNT!
   const merchantDomain    = process.env.WAYFORPAY_MERCHANT_DOMAIN!
   const baseUrl           = process.env.NEXT_PUBLIC_BASE_URL!
   const { orderReference, description } = params
+  const returnUrl = params.returnUrl ?? `${baseUrl}/api/payment/return`
 
   const orderDate   = Math.floor(Date.now() / 1000)
   const amount      = params.amount ?? PREPAYMENT_AMOUNT_PER_PERSON
@@ -55,7 +57,7 @@ export async function createInvoice(params: {
     apiVersion:         1,
     language:           'UA',
     serviceUrl:         `${baseUrl}/api/webhook/wayforpay`,
-    returnUrl:          `${baseUrl}/api/payment/return`,
+    returnUrl,
     orderReference,
     orderDate,
     amount,
@@ -110,8 +112,9 @@ export interface PendingOrderData {
   c: number    // peopleCount
   d: string    // mkDatetime
   st: string   // status: 'booked' | 'cert+payment'
-  cert?: string // certificateCode (тільки для cert+payment)
-  cri?: number  // certRowIndex (тільки для cert+payment)
+  studio: string // studio id: 'sumy' | 'if'
+  cert?: string  // certificateCode (тільки для cert+payment)
+  cri?: number   // certRowIndex (тільки для cert+payment)
 }
 
 export function encodeOrderData(data: PendingOrderData): string {

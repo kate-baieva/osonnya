@@ -125,3 +125,24 @@
   text-align: center;
   padding: 1rem 0;
 }
+
+.studioBlock {
+  margin-bottom: 2.5rem;
+}
+
+.studioTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #9b6b3a;
+  margin-bottom: 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid #f0e8df;
+}
+
+.slotTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #9b6b3a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

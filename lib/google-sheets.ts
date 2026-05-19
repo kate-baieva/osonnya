@@ -40,35 +40,23 @@ function parseDatetime(raw: string): { date: string; time: string } | null {
 }
 
 function rowToSlot(row: string[], rowIndex: number): Slot | null {
-  const datetimeRaw = (row[0] ?? '').trim()   // A: Date (datetime)
-  const capacity    = Number(row[1] ?? 0)      // B: Capacity
-  const registeredRaw = (row[2] ?? '').trim()  // C: # of sign ups [auto]
-  const eventId     = (row[3] ?? '').trim()    // D: EventId
-  const title       = (row[4] ?? '').trim()    // E: Name
-
-  console.log(`[row ${rowIndex}] raw:`, { datetimeRaw, capacity, registeredRaw, eventId })
+  const datetimeRaw   = (row[0] ?? '').trim()   // A: Date (datetime)
+  const capacity      = Number(row[1] ?? 0)      // B: Capacity
+  const registeredRaw = (row[2] ?? '').trim()    // C: # of sign ups [auto]
+  const eventId       = (row[3] ?? '').trim()    // D: EventId
+  const title         = (row[4] ?? '').trim()    // E: Name
 
   const parsed = parseDatetime(datetimeRaw)
-  if (!parsed) {
-    console.log(`[row ${rowIndex}] ❌ не вдалось розпарсити дату: "${datetimeRaw}"`)
-    return null
-  }
+  if (!parsed) return null
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  if (new Date(parsed.date) < today) {
-    console.log(`[row ${rowIndex}] ❌ минула дата: ${parsed.date}`)
-    return null
-  }
+  if (new Date(parsed.date) < today) return null
 
-  const registered = /^\d+$/.test(registeredRaw) ? Number(registeredRaw) : 0
+  const registered    = /^\d+$/.test(registeredRaw) ? Number(registeredRaw) : 0
   const spotsRemaining = capacity - registered
-  if (spotsRemaining <= 0) {
-    console.log(`[row ${rowIndex}] ❌ немає місць: capacity=${capacity}, registered=${registered}`)
-    return null
-  }
+  if (spotsRemaining <= 0) return null
 
-  console.log(`[row ${rowIndex}] ✅ слот: ${parsed.date} ${parsed.time}, місць: ${spotsRemaining}`)
   return {
     id: eventId || `row_${rowIndex}`,
     datetime: datetimeRaw,
@@ -81,29 +69,27 @@ function rowToSlot(row: string[], rowIndex: number): Slot | null {
   }
 }
 
-export async function getSlots(): Promise<Slot[]> {
+// ─── Slots ───────────────────────────────────────────────────────────────────
+
+export async function getSlots(spreadsheetId?: string): Promise<Slot[]> {
+  const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
   const startRow = config.dataRows.slots
   const range = `${config.sheets.slots}!A${startRow}:E`
-  console.log(`[getSlots] читаю діапазон: "${range}"`)
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: config.spreadsheetId,
-    range,
-  })
-
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sid, range })
   const rows = (res.data.values ?? []) as string[][]
-  console.log(`[getSlots] отримано рядків: ${rows.length}`)
-  if (rows.length > 0) console.log(`[getSlots] перший рядок:`, rows[0])
   return rows
     .map((row, i) => rowToSlot(row, startRow + i))
     .filter((s): s is Slot => s !== null)
 }
 
-export async function getSlotById(slotId: string): Promise<Slot | null> {
-  const slots = await getSlots()
+export async function getSlotById(slotId: string, spreadsheetId?: string): Promise<Slot | null> {
+  const slots = await getSlots(spreadsheetId)
   return slots.find((s) => s.id === slotId) ?? null
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // Формат MM/DD/YY HH:MM:SS (як в існуючих записах таблиці)
 function formatDateSheet(d: Date): string {
@@ -116,11 +102,12 @@ function formatDateSheet(d: Date): string {
   return `${mm}/${dd}/${yy} ${hh}:${min}:${ss}`
 }
 
-// Знаходить перший порожній рядок після останнього запису (ігнорує pre-formatted пусті рядки)
-async function findNextRow(sheetName: string, startRow: number): Promise<number> {
+// Знаходить перший порожній рядок після останнього запису
+async function findNextRow(sheetName: string, startRow: number, spreadsheetId?: string): Promise<number> {
+  const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: config.spreadsheetId,
+    spreadsheetId: sid,
     range: `${sheetName}!A${startRow}:A`,
   })
   const rows = (res.data.values ?? []) as string[][]
@@ -133,18 +120,22 @@ async function findNextRow(sheetName: string, startRow: number): Promise<number>
   return lastFilled + 1
 }
 
+// ─── Clients ─────────────────────────────────────────────────────────────────
+
 // Знаходить клієнта за телефоном або додає нового. Повертає повне ім'я.
 export async function findOrCreateClient(
   name: string,
   surname: string,
   phone: string,
   instagram?: string,
+  spreadsheetId?: string,
 ): Promise<string> {
+  const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
   const startRow = config.dataRows.clients
 
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: config.spreadsheetId,
+    spreadsheetId: sid,
     range: `${config.sheets.clients}!A${startRow}:D`,
   })
 
@@ -152,26 +143,120 @@ export async function findOrCreateClient(
   for (const row of rows) {
     const existingPhone = (row[2] ?? '').trim()
     if (existingPhone === phone) {
-      // Клієнт вже існує
       return `${(row[0] ?? '').trim()} ${(row[1] ?? '').trim()}`.trim()
     }
   }
 
-  // Додаємо нового клієнта одразу після останнього запису
-  const nextRow = await findNextRow(config.sheets.clients, config.dataRows.clients)
+  const nextRow = await findNextRow(config.sheets.clients, config.dataRows.clients, sid)
   await sheets.spreadsheets.values.update({
-    spreadsheetId: config.spreadsheetId,
+    spreadsheetId: sid,
     range: `${config.sheets.clients}!A${nextRow}:D${nextRow}`,
     valueInputOption: 'RAW',
-    requestBody: {
-      values: [[name, surname, phone, instagram ?? '']],
-    },
+    requestBody: { values: [[name, surname, phone, instagram ?? '']] },
   })
 
   return `${name} ${surname}`.trim()
 }
 
-// ─── Сертифікати ────────────────────────────────────────────────────────────
+// ─── Orders ──────────────────────────────────────────────────────────────────
+
+// Повертає номер рядка, щоб вебхук міг оновити передоплату
+export async function appendOrder(
+  data: {
+    clientFullName: string
+    mkDatetime: string
+    peopleCount: number
+    orderReference: string
+    status?: string          // 'booked' (default) | 'certificate'
+    certificateCode?: string
+    pricePerPerson?: number  // 650 для Сум, 700 для ІФ
+  },
+  spreadsheetId?: string,
+): Promise<number> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const now = formatDateSheet(new Date())
+  const nextRow = await findNextRow(config.sheets.orders, config.dataRows.orders, sid)
+  const totalAmount = data.peopleCount * (data.pricePerPerson ?? 650)
+
+  // Колонки A–O: Order DateTime, Client, Amount, Prepayment, Prepay Date,
+  // Prepay Account, Type, MK DateTime, # of People, Afterpayment,
+  // Afterpay Date, Afterpay Account, Certificate #, Status, Comment
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.orders}!A${nextRow}:O${nextRow}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[
+        now,                              // A: Order DateTime
+        data.clientFullName,              // B: Client
+        totalAmount,                      // C: Amount
+        '',                               // D: Prepayment
+        '',                               // E: Prepay Date
+        '',                               // F: Prepay Account
+        'group',                          // G: Type
+        data.mkDatetime,                  // H: MK DateTime
+        data.peopleCount,                 // I: # of People
+        '',                               // J: Afterpayment
+        '',                               // K: Afterpay Date
+        '',                               // L: Afterpay Account
+        data.certificateCode ?? '',       // M: Certificate #
+        data.status ?? 'booked',          // N: Status
+        data.orderReference,              // O: Comment
+      ]],
+    },
+  })
+
+  return nextRow
+}
+
+// Знаходить рядок замовлення за orderReference (у колонці O — Comment)
+export async function findOrderRowByReference(
+  orderReference: string,
+  spreadsheetId?: string,
+): Promise<{ rowIndex: number; certificateCode: string } | null> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const startRow = config.dataRows.orders
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sid,
+    range: `${config.sheets.orders}!M${startRow}:O`,
+  })
+
+  const rows = (res.data.values ?? []) as string[][]
+  for (let i = 0; i < rows.length; i++) {
+    const comment = (rows[i]?.[2] ?? '').trim()
+    if (comment === orderReference) {
+      return {
+        rowIndex: startRow + i,
+        certificateCode: (rows[i]?.[0] ?? '').trim(),
+      }
+    }
+  }
+  return null
+}
+
+// Заповнює передоплату після успішної оплати через WayForPay
+export async function updateOrderPrepayment(
+  rowIndex: number,
+  amount: number,
+  spreadsheetId?: string,
+): Promise<void> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const payDate = formatDateSheet(new Date())
+
+  // D: Prepayment, E: Prepay Date, F: Prepay Account
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.orders}!D${rowIndex}:F${rowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[amount, payDate, 'WayForPay']] },
+  })
+}
+
+// ─── Certificates ─────────────────────────────────────────────────────────────
 
 export interface CertificateInfo {
   rowIndex: number
@@ -181,15 +266,16 @@ export interface CertificateInfo {
   expiresAt: Date
 }
 
-export async function validateCertificate(code: string): Promise<
-  | { valid: true; info: CertificateInfo }
-  | { valid: false; reason: string }
-> {
+export async function validateCertificate(
+  code: string,
+  spreadsheetId?: string,
+): Promise<{ valid: true; info: CertificateInfo } | { valid: false; reason: string }> {
+  const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
   const startRow = config.dataRows.certificates
 
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: config.spreadsheetId,
+    spreadsheetId: sid,
     range: `${config.sheets.certificates}!A${startRow}:J`,
   })
 
@@ -201,7 +287,7 @@ export async function validateCertificate(code: string): Promise<
     const certCode = (row[6] ?? '').trim()  // G: номер сертифікату
     if (certCode !== trimmed) continue
 
-    const usedRaw = (row[9] ?? '').trim()   // J: чекбокс (TRUE/FALSE)
+    const usedRaw = (row[9] ?? '').trim()   // J: чекбокс
     if (usedRaw === 'TRUE' || usedRaw === 'true' || usedRaw === '1') {
       return { valid: false, reason: 'Цей сертифікат вже використано' }
     }
@@ -216,8 +302,8 @@ export async function validateCertificate(code: string): Promise<
       return { valid: false, reason: 'Термін дії сертифікату закінчився' }
     }
 
-    const peopleCount = Number(row[3] ?? 1) // D: кількість учасників
-    const type = (row[5] ?? '').trim()       // F: тип МК
+    const peopleCount = Number(row[3] ?? 1) // D
+    const type = (row[5] ?? '').trim()       // F
 
     return {
       valid: true,
@@ -228,101 +314,13 @@ export async function validateCertificate(code: string): Promise<
   return { valid: false, reason: 'Сертифікат не знайдено' }
 }
 
-export async function redeemCertificate(rowIndex: number): Promise<void> {
+export async function redeemCertificate(rowIndex: number, spreadsheetId?: string): Promise<void> {
+  const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
   await sheets.spreadsheets.values.update({
-    spreadsheetId: config.spreadsheetId,
+    spreadsheetId: sid,
     range: `${config.sheets.certificates}!J${rowIndex}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [['TRUE']] },
-  })
-}
-
-// ─── Замовлення ──────────────────────────────────────────────────────────────
-
-// Повертає номер рядка, щоб вебхук міг оновити передоплату
-export async function appendOrder(data: {
-  clientFullName: string
-  mkDatetime: string
-  peopleCount: number
-  orderReference: string   // зберігаємо в Comment для пошуку з вебхука
-  status?: string          // 'booked' (default) | 'certificate' | 'cert+payment'
-  certificateCode?: string // зберігаємо в Certificate # (M) для вебхука
-}): Promise<number> {
-  const sheets = getSheets()
-  const now = formatDateSheet(new Date())
-  const nextRow = await findNextRow(config.sheets.orders, config.dataRows.orders)
-
-  // Колонки A–O: Order DateTime, Client, Amount, Prepayment, Prepay Date,
-  // Prepay Account, Type, MK DateTime, # of People, Afterpayment,
-  // Afterpay Date, Afterpay Account, Certificate #, Status, Comment
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: config.spreadsheetId,
-    range: `${config.sheets.orders}!A${nextRow}:O${nextRow}`,
-    valueInputOption: 'RAW',
-    requestBody: {
-      values: [[
-        now,                   // A: Order DateTime
-        data.clientFullName,               // B: Client
-        data.peopleCount * 650,            // C: Amount (650 грн × кількість учасників)
-        '',                    // D: Prepayment
-        '',                    // E: Prepay Date
-        '',                    // F: Prepay Account
-        'group',               // G: Type
-        data.mkDatetime,       // H: MK DateTime
-        data.peopleCount,      // I: # of People
-        '',                    // J: Afterpayment
-        '',                    // K: Afterpay Date
-        '',                    // L: Afterpay Account
-        data.certificateCode ?? '',    // M: Certificate # — для вебхука при змішаній оплаті
-        data.status ?? 'booked',      // N: Status
-        data.orderReference,          // O: Comment — зберігаємо для вебхука
-      ]],
-    },
-  })
-
-  return nextRow
-}
-
-// Знаходить рядок замовлення за orderReference (у колонці O — Comment)
-// Також повертає код сертифікату з колонки M (якщо є) — для вебхука
-export async function findOrderRowByReference(
-  orderReference: string
-): Promise<{ rowIndex: number; certificateCode: string } | null> {
-  const sheets = getSheets()
-  const startRow = config.dataRows.orders
-
-  // Читаємо M:O — Certificate # (M, idx 0), Status (N, idx 1), Comment (O, idx 2)
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: config.spreadsheetId,
-    range: `${config.sheets.orders}!M${startRow}:O`,
-  })
-
-  const rows = (res.data.values ?? []) as string[][]
-  for (let i = 0; i < rows.length; i++) {
-    const comment = (rows[i]?.[2] ?? '').trim()  // O: orderReference
-    if (comment === orderReference) {
-      return {
-        rowIndex: startRow + i,
-        certificateCode: (rows[i]?.[0] ?? '').trim(), // M: Certificate #
-      }
-    }
-  }
-  return null
-}
-
-// Заповнює передоплату після успішної оплати через WayForPay
-export async function updateOrderPrepayment(rowIndex: number, amount: number): Promise<void> {
-  const sheets = getSheets()
-  const payDate = formatDateSheet(new Date())
-
-  // D: Prepayment, E: Prepay Date, F: Prepay Account
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: config.spreadsheetId,
-    range: `${config.sheets.orders}!D${rowIndex}:F${rowIndex}`,
-    valueInputOption: 'RAW',
-    requestBody: {
-      values: [[amount, payDate, 'WayForPay']],
-    },
   })
 }

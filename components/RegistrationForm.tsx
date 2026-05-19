@@ -7,8 +7,6 @@ import { formSchema, type FormInput } from '@/lib/validation'
 import type { Slot } from '@/types'
 import styles from './RegistrationForm.module.css'
 
-const PREPAYMENT_PER_PERSON = 650
-
 interface CertValidation {
   status: 'idle' | 'checking' | 'valid' | 'invalid'
   peopleCount?: number
@@ -18,14 +16,12 @@ interface CertValidation {
 
 interface Props {
   selectedSlot: Slot | null
+  studioId: string
+  pricePerPerson: number
   onSuccess: () => void
 }
 
-function formatUkDate(iso: string) {
-  return new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
-export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
+export default function RegistrationForm({ selectedSlot, studioId, pricePerPerson, onSuccess }: Props) {
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [payMethod, setPayMethod] = useState<'card' | 'certificate'>('card')
@@ -35,8 +31,8 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors },
+    watch,
     reset,
   } = useForm<FormInput>({
     resolver: zodResolver(formSchema),
@@ -44,11 +40,8 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
   })
 
   const peopleCount = watch('peopleCount') || 1
-
-  // Скільки людей покриває сертифікат і скільки треба доплатити
   const certCovers  = certVal.status === 'valid' ? (certVal.peopleCount ?? 0) : 0
   const extraCount  = certCovers > 0 ? Math.max(0, peopleCount - certCovers) : 0
-  const extraAmount = PREPAYMENT_PER_PERSON // фіксована передоплата 650 грн незалежно від кількості
   const isMixed     = certVal.status === 'valid' && extraCount > 0
 
   const checkCertificate = async () => {
@@ -58,7 +51,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
       const res = await fetch('/api/validate-certificate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: certCode.trim() }),
+        body: JSON.stringify({ code: certCode.trim(), studio: studioId }),
       })
       const json = await res.json()
       if (!res.ok || json.error) {
@@ -85,16 +78,24 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
   const onSubmit = async (data: FormInput) => {
     if (!selectedSlot) return
 
-    if (payMethod === 'certificate' && certVal.status !== 'valid') {
-      setServerError('Спочатку перевірте код сертифікату')
-      return
+    if (payMethod === 'certificate') {
+      if (certVal.status !== 'valid') {
+        setServerError('Спочатку перевірте код сертифікату')
+        return
+      }
+      if (certVal.peopleCount !== undefined && certVal.peopleCount < data.peopleCount) {
+        if (!isMixed) {
+          setServerError(`Сертифікат розрахований на ${certVal.peopleCount} учасн., а ви вказали ${data.peopleCount}`)
+          return
+        }
+      }
     }
 
     setServerError(null)
     setSubmitting(true)
 
     try {
-      const body: Record<string, unknown> = { ...data, slotId: selectedSlot.id }
+      const body: Record<string, unknown> = { ...data, slotId: selectedSlot.id, studio: studioId }
       if (payMethod === 'certificate') body.certificateCode = certCode.trim()
 
       const res = await fetch('/api/register', {
@@ -109,13 +110,11 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
         return
       }
 
-      // Є посилання на оплату → редирект (картка або cert+доплата)
       if (json.paymentUrl) {
         window.location.href = json.paymentUrl
         return
       }
 
-      // Лише сертифікат → одразу успіх
       reset()
       setCertCode('')
       setCertVal({ status: 'idle' })
@@ -127,27 +126,13 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
     }
   }
 
-  // Текст та стан кнопки Submit
-  const submitLabel = submitting
-    ? 'Надсилаємо…'
-    : payMethod === 'certificate' && certVal.status === 'valid' && !isMixed
-      ? 'Записатись'
-      : 'Записатись та оплатити'
-
-  const submitDisabled =
-    !selectedSlot ||
-    submitting ||
-    (payMethod === 'certificate' && certVal.status !== 'valid')
-
   return (
     <form className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
       <div className={styles.row}>
         <div className={styles.field}>
           <label htmlFor="name">Ім'я</label>
           <input
-            id="name"
-            type="text"
-            placeholder="Олена"
+            id="name" type="text" placeholder="Олена"
             {...register('name')}
             className={errors.name ? styles.inputError : ''}
           />
@@ -157,9 +142,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
         <div className={styles.field}>
           <label htmlFor="surname">Прізвище</label>
           <input
-            id="surname"
-            type="text"
-            placeholder="Коваль"
+            id="surname" type="text" placeholder="Коваль"
             {...register('surname')}
             className={errors.surname ? styles.inputError : ''}
           />
@@ -170,9 +153,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
       <div className={styles.field}>
         <label htmlFor="phone">Номер телефону</label>
         <input
-          id="phone"
-          type="tel"
-          placeholder="0501234567"
+          id="phone" type="tel" placeholder="0501234567"
           {...register('phone')}
           className={errors.phone ? styles.inputError : ''}
         />
@@ -184,9 +165,7 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
           Instagram <span className={styles.optional}>(необов'язково)</span>
         </label>
         <input
-          id="instagram"
-          type="text"
-          placeholder="@username або посилання"
+          id="instagram" type="text" placeholder="@username або посилання"
           {...register('instagram')}
           className={errors.instagram ? styles.inputError : ''}
         />
@@ -196,19 +175,14 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
       <div className={styles.field}>
         <label htmlFor="peopleCount">Кількість людей</label>
         <input
-          id="peopleCount"
-          type="number"
-          min={1}
+          id="peopleCount" type="number" min={1}
           max={selectedSlot?.spotsRemaining ?? 20}
           {...register('peopleCount', { valueAsNumber: true })}
           className={errors.peopleCount ? styles.inputError : ''}
+          onChange={() => { if (certVal.status === 'valid') setCertVal({ status: 'idle' }) }}
         />
-        {errors.peopleCount && (
-          <span className={styles.error}>{errors.peopleCount.message}</span>
-        )}
-        {selectedSlot && (
-          <span className={styles.hint}>Вільних місць: {selectedSlot.spotsRemaining}</span>
-        )}
+        {errors.peopleCount && <span className={styles.error}>{errors.peopleCount.message}</span>}
+        {selectedSlot && <span className={styles.hint}>Вільних місць: {selectedSlot.spotsRemaining}</span>}
       </div>
 
       {/* Вибір способу оплати */}
@@ -232,28 +206,22 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
         </div>
       </div>
 
-      {/* Блок введення сертифікату */}
+      {/* Блок сертифікату */}
       {payMethod === 'certificate' && (
         <div className={styles.certBlock}>
           <label htmlFor="certCode" className={styles.certLabel}>Код сертифікату</label>
           <div className={styles.certRow}>
             <input
-              id="certCode"
-              type="text"
-              placeholder="Введіть номер сертифікату"
+              id="certCode" type="text" placeholder="Введіть номер сертифікату"
               value={certCode}
-              onChange={(e) => {
-                setCertCode(e.target.value)
-                setCertVal({ status: 'idle' })
-              }}
+              onChange={(e) => { setCertCode(e.target.value); setCertVal({ status: 'idle' }) }}
               className={`${styles.certInput} ${
-                certVal.status === 'valid'   ? styles.certInputValid :
+                certVal.status === 'valid' ? styles.certInputValid :
                 certVal.status === 'invalid' ? styles.certInputInvalid : ''
               }`}
             />
             <button
-              type="button"
-              className={styles.certCheckBtn}
+              type="button" className={styles.certCheckBtn}
               onClick={checkCertificate}
               disabled={!certCode.trim() || certVal.status === 'checking'}
             >
@@ -261,29 +229,28 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
             </button>
           </div>
 
-          {/* Сертифікат дійсний — лише сертифікат */}
           {certVal.status === 'valid' && !isMixed && (
             <p className={styles.certValid}>
-              ✓ Сертифікат {certCode} діє до {formatUkDate(certVal.expiresAt!)} ·{' '}
-              {certVal.peopleCount}{' '}
-              {certVal.peopleCount === 1 ? 'учасник' : 'учасники/ків'}
+              ✓ Сертифікат дійсний · {certVal.peopleCount}{' '}
+              {certVal.peopleCount === 1 ? 'учасник' : 'учасники/ків'} ·{' '}
+              діє до {new Date(certVal.expiresAt!).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           )}
 
-          {/* Сертифікат + доплата */}
           {certVal.status === 'valid' && isMixed && (
-            <div className={styles.mixedNotice}>
+            <div className={styles.certMixed}>
               <p>
-                Сертифікат {certCode} діє до {formatUkDate(certVal.expiresAt!)}.
+                Сертифікат {certCode} діє до{' '}
+                {new Date(certVal.expiresAt!).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}.
               </p>
               <p>
                 Сертифікат {certCode} діє на {certVal.peopleCount}{' '}
                 {certVal.peopleCount === 1 ? 'учасника' : 'учасників'}.
-                Вартість участі додаткових учасників — {PREPAYMENT_PER_PERSON} грн.
+                Вартість участі додаткових учасників — {pricePerPerson} грн.
               </p>
               <p className={styles.mixedPayLine}>
                 Внесіть, будь ласка, передоплату за додаткових учасників —{' '}
-                <strong>{extraAmount} грн</strong>.
+                <strong>{pricePerPerson} грн</strong>.
               </p>
             </div>
           )}
@@ -299,14 +266,20 @@ export default function RegistrationForm({ selectedSlot, onSuccess }: Props) {
       <button
         type="submit"
         className={styles.submit}
-        disabled={submitDisabled}
+        disabled={
+          !selectedSlot ||
+          submitting ||
+          (payMethod === 'certificate' && certVal.status !== 'valid')
+        }
       >
-        {submitLabel}
+        {submitting
+          ? 'Надсилаємо…'
+          : payMethod === 'certificate' && !isMixed
+            ? 'Записатись'
+            : 'Записатись та оплатити'}
       </button>
 
-      {!selectedSlot && (
-        <p className={styles.hint}>Спочатку оберіть слот вище</p>
-      )}
+      {!selectedSlot && <p className={styles.hint}>Спочатку оберіть слот вище</p>}
     </form>
   )
 }

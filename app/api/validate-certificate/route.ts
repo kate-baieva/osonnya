@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateCertificate } from '@/lib/google-sheets'
+import { getSpreadsheetId } from '@/lib/studios'
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -9,13 +10,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Некоректний запит' }, { status: 400 })
   }
 
-  const code = ((body as Record<string, unknown>)?.code as string ?? '').trim()
+  const raw = body as Record<string, unknown>
+  const code     = ((raw?.code as string ?? '')).trim()
+  const studioId = (raw?.studio as string ?? 'sumy')
+
   if (!code) {
     return NextResponse.json({ error: 'Введіть код сертифікату' }, { status: 400 })
   }
 
   try {
-    const result = await validateCertificate(code)
+    const result = await validateCertificate(code, getSpreadsheetId(studioId))
 
     if (!result.valid) {
       return NextResponse.json({ valid: false, reason: result.reason })

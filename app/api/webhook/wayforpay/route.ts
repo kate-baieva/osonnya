@@ -11,6 +11,7 @@ import {
   redeemCertificate,
   findOrderRowByReference,
 } from '@/lib/google-sheets'
+import { getSpreadsheetId } from '@/lib/studios'
 
 export async function POST(req: NextRequest) {
   let payload: Record<string, unknown>
@@ -31,18 +32,23 @@ export async function POST(req: NextRequest) {
   const transactionStatus = payload.transactionStatus as string
   const paidAmount        = Number(payload.amount ?? 0)
 
-  console.log(`[webhook/wayforpay] orderReference=${orderReference}, status=${transactionStatus}, amount=${paidAmount}`)
+  console.log(`[webhook/wayforpay] ref=${orderReference}, status=${transactionStatus}, amount=${paidAmount}`)
 
   if (transactionStatus === 'Approved') {
     try {
       const orderData = decodeOrderData(orderReference)
 
       if (orderData) {
-        // ── Новий формат: всі дані закодовані в orderReference ──────────
-        console.log('[webhook/wayforpay] декодовано дані замовлення:', orderData)
+        // ── Новий формат: дані закодовані в orderReference ──────────────
+        const studioId      = orderData.studio ?? 'sumy'
+        const spreadsheetId = getSpreadsheetId(studioId)
+        const pricePerPerson = orderData.studio === 'if' ? 700 : 650
+
+        console.log(`[webhook/wayforpay] студія=${studioId}, декодовано:`, orderData)
 
         const clientFullName = await findOrCreateClient(
-          orderData.n, orderData.s, orderData.p, orderData.i || undefined
+          orderData.n, orderData.s, orderData.p, orderData.i || undefined,
+          spreadsheetId,
         )
 
         const rowIndex = await appendOrder({
@@ -51,19 +57,19 @@ export async function POST(req: NextRequest) {
           peopleCount: orderData.c,
           orderReference,
           status: orderData.st === 'cert+payment' ? 'certificate' : 'booked',
-        })
+          pricePerPerson,
+        }, spreadsheetId)
 
-        await updateOrderPrepayment(rowIndex, paidAmount)
+        await updateOrderPrepayment(rowIndex, paidAmount, spreadsheetId)
         console.log(`[webhook/wayforpay] ✅ замовлення збережено: рядок ${rowIndex}, сума ${paidAmount}`)
 
         // Якщо cert+payment — погашаємо сертифікат
         if (orderData.cert && orderData.cri) {
-          await redeemCertificate(orderData.cri)
+          await redeemCertificate(orderData.cri, spreadsheetId)
           console.log(`[webhook/wayforpay] ✅ сертифікат погашено: ${orderData.cert}`)
         }
       } else {
         // ── Запасний варіант для старих замовлень ───────────────────────
-        console.log('[webhook/wayforpay] старий формат orderReference, шукаємо в таблиці')
         const found = await findOrderRowByReference(orderReference)
         if (found !== null) {
           await updateOrderPrepayment(found.rowIndex, paidAmount)

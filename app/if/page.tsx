@@ -1,10 +1,10 @@
 import { Suspense } from 'react'
 import BookingPage from '@/components/BookingPage'
 
-export default function SumyPage() {
+export default function IFPage() {
   return (
     <Suspense>
-      <BookingPage studioId="sumy" />
+      <BookingPage studioId="if" />
     </Suspense>
   )
 }

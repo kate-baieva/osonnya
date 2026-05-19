@@ -10,8 +10,8 @@ import {
 import {
   createInvoice,
   encodeOrderData,
-  PREPAYMENT_AMOUNT_PER_PERSON,
 } from '@/lib/wayforpay'
+import { getStudio, getSpreadsheetId } from '@/lib/studios'
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -21,8 +21,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Некоректний запит' }, { status: 400 })
   }
 
-  const slotId = (body as Record<string, unknown>)?.slotId as string | undefined
-  const certificateCode = ((body as Record<string, unknown>)?.certificateCode as string ?? '').trim() || undefined
+  const raw = body as Record<string, unknown>
+  const slotId        = raw?.slotId as string | undefined
+  const studioId      = (raw?.studio as string ?? 'sumy')
+  const certificateCode = ((raw?.certificateCode as string ?? '')).trim() || undefined
   const parsed = formSchema.safeParse(body)
 
   if (!parsed.success || !slotId) {
@@ -32,9 +34,15 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const studio = getStudio(studioId)
+  if (!studio) {
+    return NextResponse.json({ error: 'Невідома студія' }, { status: 400 })
+  }
+
+  const spreadsheetId = getSpreadsheetId(studioId)
   const { name, surname, phone, instagram, peopleCount } = parsed.data
 
-  const slot = await getSlotById(slotId).catch(() => null)
+  const slot = await getSlotById(slotId, spreadsheetId).catch(() => null)
   if (!slot) {
     return NextResponse.json({ error: 'Слот не знайдено або вже недоступний' }, { status: 404 })
   }
@@ -49,7 +57,7 @@ export async function POST(req: NextRequest) {
   if (certificateCode) {
     let certResult: Awaited<ReturnType<typeof validateCertificate>>
     try {
-      certResult = await validateCertificate(certificateCode)
+      certResult = await validateCertificate(certificateCode, spreadsheetId)
     } catch (err) {
       console.error('[POST /api/register] ❌ validateCertificate:', err)
       return NextResponse.json({ error: 'Помилка перевірки сертифікату. Спробуйте ще раз.' }, { status: 500 })
@@ -61,18 +69,19 @@ export async function POST(req: NextRequest) {
 
     const extraCount = peopleCount - certResult.info.peopleCount
 
-    // ── Тільки сертифікат (без доплати) — записуємо одразу ───────────────
+    // ── Тільки сертифікат — записуємо одразу ─────────────────────────────
     if (extraCount <= 0) {
       try {
-        const clientFullName = await findOrCreateClient(name, surname, phone, instagram)
+        const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId)
         await appendOrder({
           clientFullName,
           mkDatetime: slot.datetime,
           peopleCount,
           orderReference: certificateCode,
           status: 'certificate',
-        })
-        await redeemCertificate(certResult.info.rowIndex)
+          pricePerPerson: studio.pricePerPerson,
+        }, spreadsheetId)
+        await redeemCertificate(certResult.info.rowIndex, spreadsheetId)
       } catch (err) {
         console.error('[POST /api/register] ❌ certificate save:', err)
         return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
@@ -80,22 +89,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
-    // ── Сертифікат + доплата — спочатку оплата, потім запис ──────────────
-    // Кодуємо всі дані в orderReference, таблиця не чіпається до оплати
+    // ── Сертифікат + доплата — оплата спочатку ───────────────────────────
     const orderReference = encodeOrderData({
       n: name, s: surname, p: phone, i: instagram ?? '',
       c: peopleCount, d: slot.datetime,
       st: 'cert+payment',
+      studio: studioId,
       cert: certificateCode,
       cri: certResult.info.rowIndex,
     })
 
     try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
       const description = `Передоплата (сертифікат + ${extraCount} дод. учасн.) · МК ${slot.date} о ${slot.time}`
       const { invoiceUrl } = await createInvoice({
         orderReference,
         description,
-        amount: PREPAYMENT_AMOUNT_PER_PERSON,
+        amount: studio.pricePerPerson,
+        returnUrl: `${baseUrl}/api/payment/return?studio=${studioId}`,
       })
       return NextResponse.json({ paymentUrl: invoiceUrl })
     } catch (err) {
@@ -108,16 +119,22 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Оплата карткою — спочатку оплата, потім запис ───────────────────────
-  // Кодуємо всі дані в orderReference, таблиця не чіпається до оплати
   const orderReference = encodeOrderData({
     n: name, s: surname, p: phone, i: instagram ?? '',
     c: peopleCount, d: slot.datetime,
     st: 'booked',
+    studio: studioId,
   })
 
   try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
     const description = `Майстер-клас ${slot.date} о ${slot.time}`
-    const { invoiceUrl } = await createInvoice({ orderReference, description })
+    const { invoiceUrl } = await createInvoice({
+      orderReference,
+      description,
+      amount: studio.pricePerPerson,
+      returnUrl: `${baseUrl}/api/payment/return?studio=${studioId}`,
+    })
     return NextResponse.json({ paymentUrl: invoiceUrl })
   } catch (err) {
     console.error('[POST /api/register] ❌ WayForPay invoice:', err)
