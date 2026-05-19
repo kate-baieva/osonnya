@@ -1,59 +1,117 @@
 .main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1.5rem;
-  background: #faf6f1;
-  text-align: center;
+}
+
+.header {
+  text-align: left;
+  margin-bottom: 2.5rem;
 }
 
 .logo {
-  height: 64px;
+  height: 60px;
   width: auto;
-  margin-bottom: 2rem;
+  display: block;
+  margin-bottom: 1.25rem;
 }
 
 .heading {
-  font-size: 1.75rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: #2d1f0f;
-  margin-bottom: 0.85rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.6rem;
   line-height: 1.25;
 }
 
 .text {
-  font-size: 1rem;
   color: #7a6050;
+  font-size: 1rem;
   line-height: 1.6;
-  max-width: 380px;
-  margin-bottom: 2rem;
+  max-width: 460px;
 }
 
-.buttons {
+/* ─── Картки міст ─────────────────────────────────────── */
+
+.cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 560px) {
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.card {
+  text-decoration: none;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.14);
+}
+
+/* Фото з накладкою і назвою міста */
+.cardImage {
+  aspect-ratio: 4 / 3;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
-.btn {
+.cardImage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.cardCity {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  padding: 0 1rem;
+}
+
+/* Кнопка під фото */
+.cardFooter {
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.cardBtn {
   display: inline-block;
   background: #9b6b3a;
   color: #fff;
-  text-decoration: none;
-  border-radius: 12px;
-  padding: 0.9rem 2.25rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
+  padding: 0.65rem 2rem;
+  border-radius: 10px;
+  transition: background 0.15s;
   font-family: inherit;
-  transition: background 0.15s, transform 0.1s;
-  min-width: 160px;
-  text-align: center;
 }
 
-.btn:hover {
+.card:hover .cardBtn {
   background: #7a5230;
-  transform: translateY(-1px);
 }
