@@ -17,9 +17,7 @@ export default function HomePage() {
           <div
             className={styles.cardImage}
             style={{ backgroundImage: 'url(/photo-sumy.jpg)' }}
-          >
-            <span className={styles.cardCity}>Суми</span>
-          </div>
+          />
           <div className={styles.cardFooter}>
             <span className={styles.cardBtn}>Записатись</span>
           </div>
@@ -29,9 +27,7 @@ export default function HomePage() {
           <div
             className={styles.cardImage}
             style={{ backgroundImage: 'url(/photo-if.jpg)' }}
-          >
-            <span className={styles.cardCity}>Івано-Франківськ</span>
-          </div>
+          />
           <div className={styles.cardFooter}>
             <span className={styles.cardBtn}>Записатись</span>
           </div>
