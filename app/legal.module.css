@@ -1,0 +1,109 @@
+.main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+  min-height: 100vh;
+}
+
+.logo {
+  height: 48px;
+  width: auto;
+  display: block;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #2d1f0f;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.4rem;
+  line-height: 1.25;
+}
+
+.date {
+  color: #9b8878;
+  font-size: 0.875rem;
+  margin-bottom: 2rem;
+}
+
+.intro {
+  color: #4a3728;
+  font-size: 0.975rem;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.5rem;
+  background: #fdf7f2;
+  border-left: 3px solid #9b6b3a;
+  border-radius: 0 8px 8px 0;
+}
+
+.section {
+  margin-bottom: 1.75rem;
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2d1f0f;
+  margin-bottom: 0.6rem;
+}
+
+.body {
+  color: #4a3728;
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.body p {
+  margin-bottom: 0.5rem;
+}
+
+.body ul {
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+
+.body ul li {
+  margin-bottom: 0.3rem;
+}
+
+.details {
+  margin-top: 2.5rem;
+  padding: 1.25rem 1.5rem;
+  background: #fdf7f2;
+  border-radius: 12px;
+  border: 1px solid #e8d9cc;
+}
+
+.detailsTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #2d1f0f;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detailsBody {
+  color: #4a3728;
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+.backBtn {
+  display: inline-block;
+  margin-top: 2.5rem;
+  background: #9b6b3a;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.7rem 2rem;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.backBtn:hover {
+  background: #7a5230;
+}

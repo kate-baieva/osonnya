@@ -115,3 +115,25 @@
 .card:hover .cardBtn {
   background: #7a5230;
 }
+
+/* ─── Футер ───────────────────────────────────────────── */
+
+.footer {
+  margin-top: 2.5rem;
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.footerLink {
+  color: #9b8878;
+  font-size: 0.875rem;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.footerLink:hover {
+  color: #2d1f0f;
+  border-bottom-color: #2d1f0f;
+}

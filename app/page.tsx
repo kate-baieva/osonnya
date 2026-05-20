@@ -33,6 +33,11 @@ export default function HomePage() {
           </div>
         </a>
       </div>
+
+      <footer className={styles.footer}>
+        <a href="/terms" className={styles.footerLink}>Правила та умови</a>
+        <a href="/public-contract" className={styles.footerLink}>Публічний договір</a>
+      </footer>
     </main>
   )
 }
