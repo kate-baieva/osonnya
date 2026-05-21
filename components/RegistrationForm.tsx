@@ -161,9 +161,7 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="instagram">
-          Instagram <span className={styles.optional}>(необов'язково)</span>
-        </label>
+        <label htmlFor="instagram">Instagram</label>
         <input
           id="instagram" type="text" placeholder="@username або посилання"
           {...register('instagram')}

@@ -11,7 +11,7 @@ export const formSchema = z.object({
       /^\+?3?8?0?\d{9}$|^0\d{9}$/,
       'Введіть коректний номер (наприклад: 0501234567)'
     ),
-  instagram: z.string().max(100).optional(),
+  instagram: z.string().min(1, 'Введіть нік або посилання на Instagram').max(100),
   peopleCount: z
     .number({ invalid_type_error: 'Введіть кількість людей' })
     .int()
