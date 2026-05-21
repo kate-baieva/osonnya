@@ -55,16 +55,35 @@ export default function BookingPage({ studioId }: Props) {
       .then((data) => { if (Array.isArray(data)) setSlots(data) })
   }
 
-  const subtitle = preselectedId && visibleSlots[0]
-    ? [visibleSlots[0].title, `${formatDate(visibleSlots[0].date)} о ${visibleSlots[0].time}`].filter(Boolean).join(' · ')
-    : null
-
   return (
     <main className={styles.main}>
       <header className={styles.header}>
         <img src="/logo.svg" alt="Osonnya" className={styles.logo} />
-        {subtitle ? (
-          <p className={styles.subtitle}>{subtitle}</p>
+        {preselectedId ? (
+          <>
+            <h1 className={styles.heading}>
+              {visibleSlots[0]?.title
+                ? `Запис на «${visibleSlots[0].title}»`
+                : 'Запис на майстер-клас'}
+            </h1>
+            {visibleSlots[0] && (
+              <p className={styles.subtitle}>
+                {formatDate(visibleSlots[0].date)} о {visibleSlots[0].time}
+              </p>
+            )}
+            <div className={styles.includes}>
+              <p className={styles.includesIntro}>
+                Будемо раді бачити вас на майстер-класі з ліплення з глини в Осонні.
+                У вартість майстер-класу входить:
+              </p>
+              <ul className={styles.includesList}>
+                <li>2,5 години майстер-клас</li>
+                <li>створення власного виробу до 25 см, або двох виробів до 10 см</li>
+                <li>декорування виробу ангобами (фарбами)</li>
+                <li>випали виробу у пічці з глазуруванням</li>
+              </ul>
+            </div>
+          </>
         ) : (
           <>
             <h1 className={styles.heading}>Запис на майстер-клас із ліплення з глини</h1>
