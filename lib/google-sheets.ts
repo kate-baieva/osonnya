@@ -169,7 +169,9 @@ export async function appendOrder(
     orderReference: string
     status?: string          // 'booked' (default) | 'certificate'
     certificateCode?: string
-    pricePerPerson?: number  // 650 для Сум, 700 для ІФ
+    pricePerPerson?: number  // 650 для Сум, 700 для ІФ (для групового МК)
+    totalAmount?: number     // явна сума (для індивідуального МК)
+    mkType?: string          // 'group' (default) | 'individual'
   },
   spreadsheetId?: string,
 ): Promise<number> {
@@ -177,7 +179,7 @@ export async function appendOrder(
   const sheets = getSheets()
   const now = formatDateSheet(new Date())
   const nextRow = await findNextRow(config.sheets.orders, config.dataRows.orders, sid)
-  const totalAmount = data.peopleCount * (data.pricePerPerson ?? 650)
+  const totalAmount = data.totalAmount ?? data.peopleCount * (data.pricePerPerson ?? 650)
 
   // Колонки A–O: Order DateTime, Client, Amount, Prepayment, Prepay Date,
   // Prepay Account, Type, MK DateTime, # of People, Afterpayment,
@@ -194,7 +196,7 @@ export async function appendOrder(
         '',                               // D: Prepayment
         '',                               // E: Prepay Date
         '',                               // F: Prepay Account
-        'group',                          // G: Type
+        data.mkType ?? 'group',           // G: Type
         data.mkDatetime,                  // H: MK DateTime
         data.peopleCount,                 // I: # of People
         '',                               // J: Afterpayment
@@ -269,6 +271,7 @@ export interface CertificateInfo {
 export async function validateCertificate(
   code: string,
   spreadsheetId?: string,
+  requiredMkType?: string,   // якщо передано — тип у сертифікаті має містити це значення
 ): Promise<{ valid: true; info: CertificateInfo } | { valid: false; reason: string }> {
   const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
@@ -304,6 +307,11 @@ export async function validateCertificate(
 
     const peopleCount = Number(row[3] ?? 1) // D
     const type = (row[5] ?? '').trim()       // F
+
+    // Перевіряємо тип МК (для індивідуального — має бути 'individual' або 'Індивідуальний')
+    if (requiredMkType && !type.toLowerCase().includes(requiredMkType.toLowerCase())) {
+      return { valid: false, reason: 'Цей сертифікат не підходить для індивідуального майстер-класу' }
+    }
 
     return {
       valid: true,

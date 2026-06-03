@@ -105,16 +105,18 @@ export function verifyWebhookSignature(payload: Record<string, unknown>): boolea
 // Таблиця не чіпається до підтвердження оплати — все записується у вебхуку.
 
 export interface PendingOrderData {
-  n: string    // name
-  s: string    // surname
-  p: string    // phone
-  i: string    // instagram ('' якщо немає)
-  c: number    // peopleCount
-  d: string    // mkDatetime
-  st: string   // status: 'booked' | 'cert+payment'
+  n: string      // name
+  s: string      // surname
+  p: string      // phone
+  i: string      // instagram ('' якщо немає)
+  c: number      // peopleCount
+  d: string      // mkDatetime  (для індивід.: "YYYY-MM-DD HH:MM")
+  st: string     // status: 'booked' | 'cert+payment'
   studio: string // studio id: 'sumy' | 'if'
   cert?: string  // certificateCode (тільки для cert+payment)
   cri?: number   // certRowIndex (тільки для cert+payment)
+  tp?: 'individual' // type — тільки для індивідуального МК
+  amt?: number   // totalPrice для індивідуального МК
 }
 
 export function encodeOrderData(data: PendingOrderData): string {

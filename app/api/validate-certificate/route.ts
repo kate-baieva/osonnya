@@ -13,13 +13,14 @@ export async function POST(req: NextRequest) {
   const raw = body as Record<string, unknown>
   const code     = ((raw?.code as string ?? '')).trim()
   const studioId = (raw?.studio as string ?? 'sumy')
+  const mkType   = (raw?.mkType as string | undefined)  // 'individual' для індивід. МК
 
   if (!code) {
     return NextResponse.json({ error: 'Введіть код сертифікату' }, { status: 400 })
   }
 
   try {
-    const result = await validateCertificate(code, getSpreadsheetId(studioId))
+    const result = await validateCertificate(code, getSpreadsheetId(studioId), mkType)
 
     if (!result.valid) {
       return NextResponse.json({ valid: false, reason: result.reason })

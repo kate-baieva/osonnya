@@ -51,13 +51,17 @@ export async function POST(req: NextRequest) {
           spreadsheetId,
         )
 
+        const isIndividual = orderData.tp === 'individual'
+
         const rowIndex = await appendOrder({
           clientFullName,
           mkDatetime: orderData.d,
           peopleCount: orderData.c,
           orderReference,
           status: orderData.st === 'cert+payment' ? 'certificate' : 'booked',
-          pricePerPerson,
+          ...(isIndividual
+            ? { totalAmount: orderData.amt, mkType: 'individual' }
+            : { pricePerPerson }),
         }, spreadsheetId)
 
         await updateOrderPrepayment(rowIndex, paidAmount, spreadsheetId)

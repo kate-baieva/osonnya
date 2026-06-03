@@ -1,0 +1,379 @@
+.main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  min-height: 100vh;
+}
+
+.logo {
+  height: 48px;
+  width: auto;
+  display: block;
+  margin-bottom: 1.75rem;
+}
+
+/* ─── Заголовок ──────────────────────────────────────── */
+
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #2d1f0f;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin-bottom: 0.6rem;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.metaItem {
+  font-size: 0.95rem;
+  color: #6b5040;
+}
+
+.dayBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.weekday { background: #e8f4ea; color: #3a7a45; }
+.weekend { background: #fce8d8; color: #9b4a1a; }
+
+/* ─── Картка ціни / кількості ────────────────────────── */
+
+.priceCard {
+  background: #fdf7f2;
+  border: 1px solid #e8d9cc;
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.countField,
+.priceField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.priceLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9b8878;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.counter {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e0d4c8;
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.counterBtn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #fff;
+  font-size: 1.1rem;
+  color: #6b5040;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.counterBtn:hover:not(:disabled) { background: #f0e8df; }
+.counterBtn:disabled { color: #ccc; cursor: not-allowed; }
+
+.counterValue {
+  min-width: 42px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2d1f0f;
+}
+
+.priceValue {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #9b6b3a;
+}
+
+.prepayNote {
+  font-size: 0.85rem;
+  color: #7a6050;
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e8d9cc;
+}
+
+/* ─── Форма ──────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #2d1f0f;
+}
+
+.field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #d8cec5;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #2d1f0f;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.field input:focus { border-color: #9b6b3a; }
+
+.inputError { border-color: #d44 !important; }
+.error { font-size: 0.82rem; color: #d44; }
+
+/* ─── Перемикач оплати ───────────────────────────────── */
+
+.payToggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.1rem;
+}
+
+.toggleBtn {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #d8cec5;
+  border-radius: 8px;
+  background: #fff;
+  color: #7a6050;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.toggleBtn:hover { border-color: #c8a882; }
+
+.toggleActive {
+  border-color: #9b6b3a;
+  background: #fdf6ee;
+  color: #9b6b3a;
+}
+
+/* ─── Сертифікат ─────────────────────────────────────── */
+
+.certBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: #fdf6ee;
+  border: 1.5px solid #e8d8c4;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+}
+
+.certLabel {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #2d1f0f;
+}
+
+.certRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.certInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #d8cec5;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #2d1f0f;
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.certInput:focus { border-color: #9b6b3a; }
+.certValid  { border-color: #4caf50 !important; }
+.certInvalid { border-color: #d44 !important; }
+
+.certCheckBtn {
+  white-space: nowrap;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #9b6b3a;
+  border-radius: 8px;
+  background: #fff;
+  color: #9b6b3a;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+
+.certCheckBtn:hover:not(:disabled) { background: #9b6b3a; color: #fff; }
+.certCheckBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.certOk  { font-size: 0.88rem; color: #2e7d32; font-weight: 600; margin: 0; }
+.certErr { font-size: 0.88rem; color: #c00; margin: 0; }
+
+/* ─── Підсумок оплати ────────────────────────────────── */
+
+.paymentSummary {
+  background: #fdf7f2;
+  border: 1px solid #e8d9cc;
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.payNow {
+  font-size: 1rem;
+  color: #2d1f0f;
+}
+
+.payNow strong {
+  color: #9b6b3a;
+  font-size: 1.1rem;
+}
+
+.payLater {
+  font-size: 0.82rem;
+  color: #9b8878;
+}
+
+/* ─── Помилка / кнопка ───────────────────────────────── */
+
+.serverError {
+  background: #fff0f0;
+  border: 1px solid #f5c6c6;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: #c00;
+  font-size: 0.9rem;
+}
+
+.submit {
+  background: #9b6b3a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.9rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+
+.submit:hover:not(:disabled) { background: #7a5230; transform: translateY(-1px); }
+.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Success / Error ────────────────────────────────── */
+
+.successCard {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.successIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #e8f4ea;
+  color: #2e7d32;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+
+.successHeading {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2d1f0f;
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+
+.successAddress {
+  font-size: 0.9rem;
+  color: #7a6050;
+}
+
+.errorMsg {
+  color: #c00;
+  font-size: 0.95rem;
+  margin-top: 1rem;
+}
+
+/* ─── Адаптив ────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .formRow { grid-template-columns: 1fr; }
+  .priceRow { flex-direction: column; align-items: flex-start; }
+}
