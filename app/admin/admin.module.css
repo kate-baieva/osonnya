@@ -1,5 +1,7 @@
+/* ─── Загальне ─────────────────────────────────────────── */
+
 .main {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 2rem 1.25rem 4rem;
 }
@@ -8,7 +10,7 @@
   height: 48px;
   width: auto;
   display: block;
-  margin: 0 auto 1.5rem;
+  margin: 0 auto 1.25rem;
 }
 
 .title {
@@ -16,15 +18,106 @@
   font-size: 1.5rem;
   font-weight: 800;
   color: #2d1f0f;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 }
+
+/* ─── Таби студій ──────────────────────────────────────── */
+
+.studioTabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 2px solid #f0e8df;
+  padding-bottom: 0;
+}
+
+.studioTab {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #9b8878;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  border-radius: 4px 4px 0 0;
+  transition: color 0.15s;
+}
+
+.studioTab:hover {
+  color: #2d1f0f;
+}
+
+.studioTabActive {
+  color: #9b6b3a;
+  border-bottom-color: #9b6b3a;
+}
+
+/* ─── Лейаут таба: ліве меню + контент ────────────────── */
+
+.tabLayout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+/* ─── Ліве меню ────────────────────────────────────────── */
+
+.sideNav {
+  flex-shrink: 0;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: #fff;
+  border-radius: 14px;
+  padding: 0.5rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.navItem {
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #6b5040;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.navItem:hover {
+  background: #faf6f1;
+  color: #2d1f0f;
+}
+
+.navItemActive {
+  background: #f5ece3;
+  color: #9b6b3a;
+  font-weight: 700;
+}
+
+/* ─── Правий контент ───────────────────────────────────── */
+
+.tabContent {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Картки ───────────────────────────────────────────── */
 
 .card {
   background: #fff;
   border-radius: 16px;
   padding: 1.5rem;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .cardTitle {
@@ -39,6 +132,8 @@
   color: #999;
   margin-bottom: 1rem;
 }
+
+/* ─── Слоти ────────────────────────────────────────────── */
 
 .slotList {
   display: flex;
@@ -62,6 +157,14 @@
   flex-wrap: wrap;
 }
 
+.slotTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #9b6b3a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .slotDate {
   font-weight: 600;
   color: #2d1f0f;
@@ -79,6 +182,8 @@
   color: #aaa;
   margin-left: auto;
 }
+
+/* ─── Посилання ────────────────────────────────────────── */
 
 .linkRow {
   display: flex;
@@ -126,23 +231,235 @@
   padding: 1rem 0;
 }
 
-.studioBlock {
-  margin-bottom: 2.5rem;
+/* ─── Заглушка ─────────────────────────────────────────── */
+
+.comingSoon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  color: #9b8878;
+  font-size: 0.95rem;
+  text-align: center;
 }
 
-.studioTitle {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #9b6b3a;
-  margin-bottom: 1rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 2px solid #f0e8df;
+.comingSoonIcon {
+  font-size: 2.5rem;
+  line-height: 1;
 }
 
-.slotTitle {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #9b6b3a;
+/* ─── Форма індивідуального МК ────────────────────────── */
+
+.indivForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-width: 440px;
+}
+
+.indivRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.indivField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.indivLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6b5040;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.indivInput {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #e0d4c8;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #2d1f0f;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.indivInput:focus {
+  border-color: #9b6b3a;
+}
+
+.indivInputShort {
+  max-width: 140px;
+}
+
+/* Лічильник учасників */
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: fit-content;
+  border: 1.5px solid #e0d4c8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.counterBtn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: #faf6f1;
+  font-size: 1.2rem;
+  color: #6b5040;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.counterBtn:hover {
+  background: #f0e8df;
+}
+
+.counterValue {
+  min-width: 44px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2d1f0f;
+  padding: 0 0.25rem;
+}
+
+/* Підказка під лічильником */
+.indivHint {
+  font-size: 0.78rem;
+  color: #9b8878;
+  font-style: italic;
+  margin-top: 0.1rem;
+}
+
+/* Підсумок */
+.indivSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.9rem 1.1rem;
+  background: #fdf7f2;
+  border-radius: 10px;
+  border: 1px solid #e8d9cc;
+}
+
+.indivSummaryMain {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.indivSummaryLabel {
+  font-size: 0.85rem;
+  color: #9b8878;
+  font-weight: 500;
+}
+
+.indivSummaryPrice {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #9b6b3a;
+}
+
+.indivSummaryMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: #9b8878;
+}
+
+.dayBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dayBadgeWeekday {
+  background: #e8f4ea;
+  color: #3a7a45;
+}
+
+.dayBadgeWeekend {
+  background: #fce8d8;
+  color: #9b4a1a;
+}
+
+/* Кнопка генерації */
+.generateBtn {
+  padding: 0.7rem 1.75rem;
+  background: #9b6b3a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  align-self: flex-start;
+}
+
+.generateBtn:hover:not(:disabled) {
+  background: #7a5230;
+}
+
+.generateBtn:disabled {
+  background: #c9b8a8;
+  cursor: not-allowed;
+}
+
+/* Згенероване посилання */
+.generatedBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.generatedLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6b5040;
+}
+
+/* ─── Адаптив ──────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .tabLayout {
+    flex-direction: column;
+  }
+
+  .sideNav {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .navItem {
+    flex: 1;
+    text-align: center;
+    font-size: 0.82rem;
+    padding: 0.55rem 0.5rem;
+  }
 }

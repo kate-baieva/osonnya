@@ -314,6 +314,58 @@ export async function validateCertificate(
   return { valid: false, reason: 'Сертифікат не знайдено' }
 }
 
+// ─── Individual Prices ───────────────────────────────────────────────────────
+
+export interface IndividualPrice {
+  peopleCount: number
+  label: string
+  priceWeekday: number
+  priceWeekend: number | null  // null для студій без різниці будній/вихідний
+}
+
+export async function getIndividualPrices(spreadsheetId?: string): Promise<IndividualPrice[]> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sid,
+    range: 'Prices!A1:D25',
+  })
+
+  const rows = (res.data.values ?? []) as string[][]
+  const result: IndividualPrice[] = []
+
+  for (const row of rows) {
+    const service  = (row[0] ?? '').trim()
+    const price1Str = (row[2] ?? '').trim()
+    const price2Str = (row[3] ?? '').trim()
+
+    // Пропускаємо порожні, заголовки, Груповий МК та Оренда
+    if (!service || !price1Str) continue
+    const low = service.toLowerCase()
+    if (low.includes('service') || low.includes('груповий') || low.includes('оренд')) continue
+
+    // Кількість — з назви (найнадійніше, бо в Amount є друкарські помилки)
+    // Матчить: "3 людини", "5 людей", "10 люди"
+    const nameMatch = service.match(/(\d+)\s*люд/)
+    const peopleCount = nameMatch ? parseInt(nameMatch[1])
+      : service.toLowerCase().includes('парний') ? 2
+      : null
+
+    if (!peopleCount) continue
+
+    const priceWeekday = parseInt(price1Str)
+    const priceWeekend = price2Str && !isNaN(parseInt(price2Str)) ? parseInt(price2Str) : null
+
+    if (isNaN(priceWeekday)) continue
+
+    result.push({ peopleCount, label: service, priceWeekday, priceWeekend })
+  }
+
+  // Сортуємо за кількістю учасників
+  return result.sort((a, b) => a.peopleCount - b.peopleCount)
+}
+
 export async function redeemCertificate(rowIndex: number, spreadsheetId?: string): Promise<void> {
   const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
