@@ -16,6 +16,69 @@ function getSheets() {
   return google.sheets({ version: 'v4', auth: getAuth() })
 }
 
+// Повертає числовий sheetId (gid) для аркуша за назвою
+async function getSheetIdByName(sheetName: string, spreadsheetId: string): Promise<number | null> {
+  const sheets = getSheets()
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title))',
+  })
+  const sheet = res.data.sheets?.find((s) => s.properties?.title === sheetName)
+  return sheet?.properties?.sheetId ?? null
+}
+
+// Копіює data validation (спадні меню) з одного рядка в інший
+async function copyRowDataValidation(
+  fromRow: number,  // 1-indexed
+  toRow: number,    // 1-indexed
+  sheetId: number,
+  spreadsheetId: string,
+): Promise<void> {
+  const sheets = getSheets()
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [{
+        copyPaste: {
+          source: {
+            sheetId,
+            startRowIndex: fromRow - 1,
+            endRowIndex: fromRow,
+            startColumnIndex: 0,
+            endColumnIndex: 20,
+          },
+          destination: {
+            sheetId,
+            startRowIndex: toRow - 1,
+            endRowIndex: toRow,
+            startColumnIndex: 0,
+            endColumnIndex: 20,
+          },
+          pasteType: 'PASTE_DATA_VALIDATION',
+        },
+      }],
+    },
+  })
+}
+
+// Перемикає чекбокс M1 в аркуші MK Orders (FALSE → TRUE),
+// щоб тригернути синхронізацію з Google Calendar
+async function triggerCalendarSync(spreadsheetId: string): Promise<void> {
+  const sheets = getSheets()
+  const range = `${config.sheets.orders}!M1`
+  // Спочатку FALSE, потім TRUE — гарантує зміну значення і тригер onChange
+  await sheets.spreadsheets.values.update({
+    spreadsheetId, range,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[false]] },
+  })
+  await sheets.spreadsheets.values.update({
+    spreadsheetId, range,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[true]] },
+  })
+}
+
 // Підтримує формати:
 //   "2/15/2025 15:30:00"  (Google Sheets M/D/YYYY)
 //   "2025-02-15 15:30:00" (ISO-like)
@@ -208,6 +271,27 @@ export async function appendOrder(
       ]],
     },
   })
+
+  // ── Копіюємо data validation (спадні меню) з рядка вище ─────────────────
+  try {
+    const ordersSheetId = await getSheetIdByName(config.sheets.orders, sid)
+    if (ordersSheetId !== null) {
+      const fromRow = nextRow - 1  // рядок вище (заголовок або попередній запис)
+      await copyRowDataValidation(fromRow, nextRow, ordersSheetId, sid)
+    }
+  } catch (err) {
+    // Не критично — логуємо але не зупиняємо виконання
+    console.warn('[appendOrder] не вдалось скопіювати data validation:', err)
+  }
+
+  // ── Тригер синхронізації з Google Calendar для індивідуальних МК ─────────
+  if (data.mkType === 'individual') {
+    try {
+      await triggerCalendarSync(sid)
+    } catch (err) {
+      console.warn('[appendOrder] не вдалось тригернути calendar sync:', err)
+    }
+  }
 
   return nextRow
 }

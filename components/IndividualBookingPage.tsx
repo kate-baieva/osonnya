@@ -151,24 +151,29 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
     }
   }
 
-  const onSubmit = async (data: FormInput) => {
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+
+  const buildBody = (data: FormInput, skipPayment = false): Record<string, unknown> => ({
+    ...data,
+    peopleCount,
+    studio: studioId,
+    date: params!.date,
+    time: params!.time,
+    totalPrice,
+    ...(skipPayment ? { skipPayment: true } : {}),
+  })
+
+  const onSubmit = async (data: FormInput, skipPayment = false) => {
     if (!params) return
-    if (payMethod === 'certificate' && certStatus !== 'valid') {
+    if (payMethod === 'certificate' && certStatus !== 'valid' && !skipPayment) {
       setServerError('Спочатку перевірте код сертифікату')
       return
     }
     setServerError('')
     setSubmitting(true)
     try {
-      const body: Record<string, unknown> = {
-        ...data,
-        peopleCount,
-        studio: studioId,
-        date: params.date,
-        time: params.time,
-        totalPrice,
-      }
-      if (payMethod === 'certificate') body.certificateCode = certCode.trim()
+      const body = buildBody(data, skipPayment)
+      if (payMethod === 'certificate' && !skipPayment) body.certificateCode = certCode.trim()
 
       const res = await fetch('/api/register-individual', {
         method: 'POST',
@@ -369,6 +374,18 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
             : payMethod === 'certificate' ? 'Записатись'
             : 'Записатись та оплатити'}
         </button>
+
+        {/* Кнопка тільки на localhost — пропускає оплату */}
+        {isLocalhost && (
+          <button
+            type="button"
+            className={styles.testBtn}
+            disabled={submitting}
+            onClick={handleSubmit((data) => onSubmit(data, true))}
+          >
+            🧪 Тест без оплати
+          </button>
+        )}
       </form>
     </main>
   )

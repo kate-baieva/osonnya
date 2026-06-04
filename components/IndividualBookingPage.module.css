@@ -328,6 +328,20 @@
 .submit:hover:not(:disabled) { background: #7a5230; transform: translateY(-1px); }
 .submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.testBtn {
+  margin-top: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: transparent;
+  border: 1.5px dashed #aaa;
+  border-radius: 8px;
+  color: #888;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.testBtn:hover { border-color: #666; color: #444; }
+
 /* ─── Success / Error ────────────────────────────────── */
 
 .successCard {

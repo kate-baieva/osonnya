@@ -19,6 +19,7 @@ const bodySchema = formSchema.extend({
   time:            z.string().min(1),   // HH:MM
   totalPrice:      z.number().positive(),
   certificateCode: z.string().optional(),
+  skipPayment:     z.boolean().optional(), // тільки для dev-тестування
 })
 
 export async function POST(req: NextRequest) {
@@ -36,7 +37,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { name, surname, phone, instagram, peopleCount,
-          studio: studioId, date, time, totalPrice, certificateCode } = parsed.data
+          studio: studioId, date, time, totalPrice, certificateCode,
+          skipPayment } = parsed.data
 
   const studio = getStudio(studioId)
   if (!studio) return NextResponse.json({ error: 'Невідома студія' }, { status: 400 })
@@ -84,6 +86,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
     }
 
+    return NextResponse.json({ success: true })
+  }
+
+  // ─── Тест-режим (тільки localhost / NODE_ENV=development) ────────────────
+  if (skipPayment && process.env.NODE_ENV === 'development') {
+    try {
+      const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId)
+      const rowIndex = await appendOrder({
+        clientFullName,
+        mkDatetime,
+        peopleCount,
+        orderReference: `test_${Date.now()}`,
+        status: 'booked',
+        totalAmount: totalPrice,
+        mkType: 'individual',
+      }, spreadsheetId)
+      console.log(`[register-individual] ✅ TEST записано рядок ${rowIndex}`)
+    } catch (err) {
+      console.error('[register-individual] ❌ TEST save:', err)
+      return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   }
 
