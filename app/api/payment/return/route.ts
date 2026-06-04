@@ -11,9 +11,13 @@ function makeRedirect(req: NextRequest): NextResponse {
   // Покупка сертифіката — редірект на сторінку з кодом
   if (certCode) {
     const certType = req.nextUrl.searchParams.get('certType') ?? 'paper'
+    const mk       = req.nextUrl.searchParams.get('mk') ?? ''
+    const count    = req.nextUrl.searchParams.get('count') ?? '1'
     const successUrl = new URL(`${studio?.basePath ?? '/sumy'}/certificate/success`, base)
     successUrl.searchParams.set('code', certCode)
     successUrl.searchParams.set('type', certType)
+    if (mk)    successUrl.searchParams.set('mk', mk)
+    if (count) successUrl.searchParams.set('count', count)
     return NextResponse.redirect(successUrl, { status: 303 })
   }
 

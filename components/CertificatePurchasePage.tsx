@@ -89,7 +89,12 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
       // Тест-режим: редірект на success зі згенерованим кодом
       if (json.success && json.certCode) {
         const base = `${window.location.origin}${params.studio === 'if' ? '/if' : '/sumy'}/certificate/success`
-        window.location.href = `${base}?code=${encodeURIComponent(json.certCode)}&type=${json.certType ?? certType}`
+        const url  = new URL(base)
+        url.searchParams.set('code',  json.certCode)
+        url.searchParams.set('type',  json.certType ?? certType)
+        url.searchParams.set('mk',    json.mkLabel ?? params.mkLabel)
+        url.searchParams.set('count', String(json.peopleCount ?? params.peopleCount))
+        window.location.href = url.toString()
       }
     } catch {
       setServerError('Немає з\'єднання з інтернетом. Спробуйте ще раз.')

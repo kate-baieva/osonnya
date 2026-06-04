@@ -1,8 +1,12 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { STUDIOS } from '@/lib/studios'
 import styles from './CertificateSuccessPage.module.css'
+
+// Завантажуємо canvas-компонент тільки на клієнті (Canvas API недоступний на сервері)
+const CertificateDigital = dynamic(() => import('./CertificateDigital'), { ssr: false })
 
 const PAPER_INFO: Record<string, { address: string; instagram: string; instagramUrl: string }> = {
   sumy: {
@@ -19,16 +23,19 @@ const PAPER_INFO: Record<string, { address: string; instagram: string; instagram
 
 export default function CertificateSuccessPage({ studioId }: { studioId: string }) {
   const searchParams = useSearchParams()
-  const code     = searchParams.get('code') ?? ''
-  const certType = searchParams.get('type') ?? 'paper'
-  const studio   = STUDIOS[studioId]
-  const paper    = PAPER_INFO[studioId]
+  const code       = searchParams.get('code') ?? ''
+  const certType   = searchParams.get('type') ?? 'paper'
+  const mkLabel    = searchParams.get('mk') ?? ''
+  const peopleCount = Number(searchParams.get('count') ?? '1')
+  const studio     = STUDIOS[studioId]
+  const paper      = PAPER_INFO[studioId]
 
   const expiresAt = new Date()
   expiresAt.setMonth(expiresAt.getMonth() + 3)
   const expiresStr = expiresAt.toLocaleDateString('uk-UA', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
+  const instagram = studio?.instagramHandle ?? '@osonnya.ceramics'
 
   return (
     <main className={styles.main}>
@@ -76,12 +83,17 @@ export default function CertificateSuccessPage({ studioId }: { studioId: string 
           </div>
         )}
 
-        {/* Електронний сертифікат */}
-        {certType === 'digital' && (
-          <p className={styles.hint}>
-            Збережіть номер сертифіката — він знадобиться при бронюванні майстер-класу.
-            Вкажіть його у формі запису в полі «Сертифікат».
-          </p>
+        {/* Електронний сертифікат — зображення для скачування */}
+        {certType === 'digital' && mkLabel && (
+          <div className={styles.digitalBlock}>
+            <CertificateDigital
+              certCode={code}
+              mkLabel={mkLabel}
+              peopleCount={peopleCount}
+              expiresAt={expiresAt}
+              instagram={instagram}
+            />
+          </div>
         )}
 
         <a href={studio?.basePath ?? '/'} className={styles.btn}>

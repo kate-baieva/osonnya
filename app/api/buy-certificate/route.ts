@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       console.error('[buy-certificate] ❌ TEST save:', err)
       return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
     }
-    return NextResponse.json({ success: true, certCode, certType })
+    return NextResponse.json({ success: true, certCode, certType, mkLabel, peopleCount })
   }
 
   const orderReference = encodeOrderData({
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   })
 
   try {
-    const returnUrl = `${baseUrl}/api/payment/return?studio=${studioId}&certCode=${encodeURIComponent(certCode)}&certType=${certType}`
+    const returnUrl = `${baseUrl}/api/payment/return?studio=${studioId}&certCode=${encodeURIComponent(certCode)}&certType=${certType}&mk=${encodeURIComponent(mkLabel)}&count=${peopleCount}`
     const description = `Сертифікат · ${mkLabel} · ${peopleCount} учасн.`
     const { invoiceUrl } = await createInvoice({
       orderReference,

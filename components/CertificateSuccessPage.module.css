@@ -141,3 +141,8 @@
 }
 
 .btn:hover { background: #7a5230; }
+
+.digitalBlock {
+  width: 100%;
+  margin-top: 0.25rem;
+}
