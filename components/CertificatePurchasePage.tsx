@@ -70,7 +70,9 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
     if (d) setParams(decodeParams(d))
   }, [searchParams])
 
-  const onSubmit = async (data: FormInput) => {
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+
+  const doSubmit = async (data: FormInput, skipPayment = false) => {
     if (!params) return
     setServerError('')
     setSubmitting(true)
@@ -78,17 +80,23 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
       const res = await fetch('/api/buy-certificate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, ...params }),
+        body: JSON.stringify({ ...data, ...params, ...(skipPayment ? { skipPayment: true } : {}) }),
       })
       const json = await res.json()
       if (!res.ok) { setServerError(json.error ?? 'Сталася помилка. Спробуйте ще раз.'); return }
       if (json.paymentUrl) { window.location.href = json.paymentUrl; return }
+      // Тест-режим: редірект на success зі згенерованим кодом
+      if (json.success && json.certCode) {
+        window.location.href = `${window.location.origin}${params.studio === 'if' ? '/if' : '/sumy'}/certificate/success?code=${encodeURIComponent(json.certCode)}`
+      }
     } catch {
       setServerError('Немає з\'єднання з інтернетом. Спробуйте ще раз.')
     } finally {
       setSubmitting(false)
     }
   }
+
+  const onSubmit = (data: FormInput) => doSubmit(data)
 
   if (!params) {
     return (
@@ -168,6 +176,17 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
         <button type="submit" className={styles.submit} disabled={submitting}>
           {submitting ? 'Надсилаємо…' : 'Оплатити'}
         </button>
+
+        {isLocalhost && (
+          <button
+            type="button"
+            className={styles.testBtn}
+            disabled={submitting}
+            onClick={handleSubmit((data) => doSubmit(data, true))}
+          >
+            🧪 Тест без оплати
+          </button>
+        )}
       </form>
     </main>
   )
