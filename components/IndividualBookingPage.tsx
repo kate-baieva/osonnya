@@ -163,7 +163,7 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
     ...(skipPayment ? { skipPayment: true } : {}),
   })
 
-  const onSubmit = async (data: FormInput, skipPayment = false) => {
+  const doSubmit = async (data: FormInput, skipPayment = false) => {
     if (!params) return
     if (payMethod === 'certificate' && certStatus !== 'valid' && !skipPayment) {
       setServerError('Спочатку перевірте код сертифікату')
@@ -197,6 +197,8 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
       setSubmitting(false)
     }
   }
+
+  const onSubmit = (data: FormInput) => doSubmit(data)
 
   // ─── Success ─────────────────────────────────────────────
 
@@ -381,7 +383,7 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
             type="button"
             className={styles.testBtn}
             disabled={submitting}
-            onClick={handleSubmit((data) => onSubmit(data, true))}
+            onClick={handleSubmit((data) => doSubmit(data, true))}
           >
             🧪 Тест без оплати
           </button>
