@@ -86,6 +86,54 @@
   font-weight: 700;
 }
 
+/* ─── Тип сертифіката ────────────────────────────────── */
+
+.typeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  background: #fdf7f2;
+  border: 1px solid #e8d9cc;
+  border-radius: 14px;
+  margin-bottom: 0.25rem;
+}
+
+.typeLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #9b8878;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.typeToggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.typeBtn {
+  flex: 1;
+  padding: 0.6rem 0.5rem;
+  border: 1.5px solid #d8cec5;
+  border-radius: 8px;
+  background: #fff;
+  color: #7a6050;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.typeBtn:hover { border-color: #c8a882; }
+
+.typeBtnActive {
+  border-color: #9b6b3a;
+  background: #fdf6ee;
+  color: #9b6b3a;
+}
+
 /* ─── Форма ──────────────────────────────────────────── */
 
 .form {

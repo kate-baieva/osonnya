@@ -57,9 +57,10 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
   const searchParams = useSearchParams()
   const studio = STUDIOS[studioId]
 
-  const [params, setParams]         = useState<CertParams | null>(null)
+  const [params, setParams]           = useState<CertParams | null>(null)
+  const [certType, setCertType]       = useState<'paper' | 'digital'>('paper')
   const [serverError, setServerError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting]   = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormInput>({
     resolver: zodResolver(formSchema),
@@ -80,14 +81,15 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
       const res = await fetch('/api/buy-certificate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, ...params, ...(skipPayment ? { skipPayment: true } : {}) }),
+        body: JSON.stringify({ ...data, ...params, certType, ...(skipPayment ? { skipPayment: true } : {}) }),
       })
       const json = await res.json()
       if (!res.ok) { setServerError(json.error ?? 'Сталася помилка. Спробуйте ще раз.'); return }
       if (json.paymentUrl) { window.location.href = json.paymentUrl; return }
       // Тест-режим: редірект на success зі згенерованим кодом
       if (json.success && json.certCode) {
-        window.location.href = `${window.location.origin}${params.studio === 'if' ? '/if' : '/sumy'}/certificate/success?code=${encodeURIComponent(json.certCode)}`
+        const base = `${window.location.origin}${params.studio === 'if' ? '/if' : '/sumy'}/certificate/success`
+        window.location.href = `${base}?code=${encodeURIComponent(json.certCode)}&type=${json.certType ?? certType}`
       }
     } catch {
       setServerError('Немає з\'єднання з інтернетом. Спробуйте ще раз.')
@@ -134,6 +136,24 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
 
       {/* Форма */}
       <form className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
+
+        {/* Тип сертифіката */}
+        <div className={styles.typeBlock}>
+          <span className={styles.typeLabel}>Тип сертифіката</span>
+          <div className={styles.typeToggle}>
+            <button type="button"
+              className={`${styles.typeBtn} ${certType === 'paper' ? styles.typeBtnActive : ''}`}
+              onClick={() => setCertType('paper')}>
+              📄 Паперовий
+            </button>
+            <button type="button"
+              className={`${styles.typeBtn} ${certType === 'digital' ? styles.typeBtnActive : ''}`}
+              onClick={() => setCertType('digital')}>
+              📧 Електронний
+            </button>
+          </div>
+        </div>
+
         <h2 className={styles.formTitle}>Дані покупця</h2>
 
         <div className={styles.formRow}>

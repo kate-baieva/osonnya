@@ -26,7 +26,7 @@ export const STUDIOS: Record<string, StudioInfo> = {
     id: 'if',
     name: 'Осоння Івано-Франківськ',
     city: 'Івано-Франківськ',
-    address: 'вулиця Нацгвардії, 14Ю (ЖК "Паркове містечко")',
+    address: 'вулиця Національної гвардії, 14Ю (ЖК "Паркове містечко")',
     instagramHandle: '@osonnya.ceramics.if',
     instagramHighlightsUrl: 'https://www.instagram.com/osonnya.ceramics.if/',
     pricePerPerson: 700,

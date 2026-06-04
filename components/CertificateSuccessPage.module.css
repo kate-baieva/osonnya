@@ -95,6 +95,31 @@
   color: #2d1f0f;
 }
 
+.paperInfo {
+  background: #fdf7f2;
+  border: 1px solid #e8d9cc;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.paperInfo p {
+  font-size: 0.88rem;
+  color: #5a3e28;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.igLink {
+  color: #9b6b3a;
+  word-break: break-all;
+}
+
 .hint {
   font-size: 0.83rem;
   color: #9b8878;

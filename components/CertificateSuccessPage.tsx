@@ -4,12 +4,26 @@ import { useSearchParams } from 'next/navigation'
 import { STUDIOS } from '@/lib/studios'
 import styles from './CertificateSuccessPage.module.css'
 
+const PAPER_INFO: Record<string, { address: string; instagram: string; instagramUrl: string }> = {
+  sumy: {
+    address: 'місто Суми, проспект Свободи, 14',
+    instagram: '@osonnya.ceramics',
+    instagramUrl: 'https://www.instagram.com/osonnya.ceramics/',
+  },
+  if: {
+    address: 'місто Івано-Франківськ, вулиця Національної гвардії, 14Ю (ЖК "Паркове містечко")',
+    instagram: '@osonnya.ceramics.if',
+    instagramUrl: 'https://www.instagram.com/osonnya.ceramics.if/',
+  },
+}
+
 export default function CertificateSuccessPage({ studioId }: { studioId: string }) {
   const searchParams = useSearchParams()
-  const code  = searchParams.get('code') ?? ''
-  const studio = STUDIOS[studioId]
+  const code     = searchParams.get('code') ?? ''
+  const certType = searchParams.get('type') ?? 'paper'
+  const studio   = STUDIOS[studioId]
+  const paper    = PAPER_INFO[studioId]
 
-  // Розраховуємо дату закінчення (3 місяці від сьогодні — момент оплати)
   const expiresAt = new Date()
   expiresAt.setMonth(expiresAt.getMonth() + 3)
   const expiresStr = expiresAt.toLocaleDateString('uk-UA', {
@@ -28,7 +42,7 @@ export default function CertificateSuccessPage({ studioId }: { studioId: string 
         </h1>
 
         <p className={styles.sub}>
-          Ваш подарунковий сертифікат від {studio?.name}
+          Ваш {certType === 'paper' ? 'паперовий' : 'електронний'} подарунковий сертифікат від {studio?.name}
         </p>
 
         <div className={styles.codeBlock}>
@@ -43,10 +57,32 @@ export default function CertificateSuccessPage({ studioId }: { studioId: string 
           </div>
         </div>
 
-        <p className={styles.hint}>
-          Збережіть номер сертифіката — він знадобиться при бронюванні майстер-класу.
-          Вкажіть його у формі запису в полі «Сертифікат».
-        </p>
+        {/* Паперовий сертифікат — інформація про самовивіз */}
+        {certType === 'paper' && paper && (
+          <div className={styles.paperInfo}>
+            <p>
+              Ваш паперовий сертифікат вже очікує на вас в нашій студії за адресою{' '}
+              <strong>{paper.address}</strong>. Наш менеджер найближчим часом зв'яжеться
+              з вами та повідомить точні години роботи студії, коли можна забрати сертифікат.
+            </p>
+            <p>
+              У випадку виникнення додаткових питань – напишіть нам на нашу сторінку в
+              Інстаграм –{' '}
+              <a href={paper.instagramUrl} target="_blank" rel="noopener noreferrer"
+                className={styles.igLink}>
+                {paper.instagramUrl}
+              </a>
+            </p>
+          </div>
+        )}
+
+        {/* Електронний сертифікат */}
+        {certType === 'digital' && (
+          <p className={styles.hint}>
+            Збережіть номер сертифіката — він знадобиться при бронюванні майстер-класу.
+            Вкажіть його у формі запису в полі «Сертифікат».
+          </p>
+        )}
 
         <a href={studio?.basePath ?? '/'} className={styles.btn}>
           Переглянути розклад майстер-класів
