@@ -10,6 +10,7 @@ import {
   updateOrderPrepayment,
   redeemCertificate,
   findOrderRowByReference,
+  createCertificateRecord,
 } from '@/lib/google-sheets'
 import { getSpreadsheetId } from '@/lib/studios'
 
@@ -51,6 +52,26 @@ export async function POST(req: NextRequest) {
           spreadsheetId,
         )
 
+        // ── Покупка сертифіката ──────────────────────────────────────────
+        if (orderData.tp === 'cert-purchase') {
+          if (!orderData.certCode) {
+            console.error('[webhook/wayforpay] ❌ cert-purchase без certCode')
+          } else {
+            await createCertificateRecord({
+              buyerName: clientFullName,
+              buyerPhone: orderData.p,
+              buyerInstagram: orderData.i ?? '',
+              peopleCount: orderData.c,
+              mkType: orderData.mkLabel ?? '',
+              price: orderData.amt ?? paidAmount,
+              certCode: orderData.certCode,
+            }, spreadsheetId)
+            console.log(`[webhook/wayforpay] ✅ сертифікат створено: ${orderData.certCode}`)
+          }
+          return NextResponse.json(buildWebhookResponse(orderReference))
+        }
+
+        // ── Бронювання МК (груповий або індивідуальний) ──────────────────
         const isIndividual = orderData.tp === 'individual'
 
         const rowIndex = await appendOrder({

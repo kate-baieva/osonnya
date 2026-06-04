@@ -471,6 +471,55 @@ export async function getAllMkPrices(spreadsheetId?: string): Promise<Individual
   return parsePricesSheet(spreadsheetId ?? config.spreadsheetId, true)
 }
 
+// Записує новий сертифікат після успішної оплати
+export async function createCertificateRecord(
+  data: {
+    buyerName: string
+    buyerPhone: string
+    buyerInstagram: string
+    peopleCount: number
+    mkType: string   // назва формату МК
+    price: number
+    certCode: string
+  },
+  spreadsheetId?: string,
+): Promise<void> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const now = new Date()
+  const orderDate = formatDateSheet(now)
+
+  // Термін дії — 3 місяці від дати купівлі
+  const expiresAt = new Date(now)
+  expiresAt.setMonth(expiresAt.getMonth() + 3)
+  const mm   = String(expiresAt.getMonth() + 1).padStart(2, '0')
+  const dd   = String(expiresAt.getDate()).padStart(2, '0')
+  const yyyy = expiresAt.getFullYear()
+  const expiresStr = `${mm}/${dd}/${yyyy}`
+
+  const nextRow = await findNextRow(config.sheets.certificates, config.dataRows.certificates, sid)
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.certificates}!A${nextRow}:J${nextRow}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[
+        orderDate,              // A: Order DateTime
+        data.buyerName,         // B: Client
+        data.price,             // C: Amount
+        data.peopleCount,       // D: # of People
+        expiresStr,             // E: Due Date (MM/DD/YYYY)
+        data.mkType,            // F: MK Type
+        data.certCode,          // G: Number
+        orderDate,              // H: Payment Date
+        'WayForPay',            // I: Payment Account
+        false,                  // J: Utilized? = FALSE
+      ]],
+    },
+  })
+}
+
 export async function redeemCertificate(rowIndex: number, spreadsheetId?: string): Promise<void> {
   const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()

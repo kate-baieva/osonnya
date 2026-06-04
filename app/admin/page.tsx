@@ -283,11 +283,12 @@ function IndividualContent({ studio, origin }: { studio: StudioInfo; origin: str
 
 // ─── Сертифікат ──────────────────────────────────────────
 
-function CertificateContent({ studio }: { studio: StudioInfo }) {
+function CertificateContent({ studio, origin }: { studio: StudioInfo; origin: string }) {
   const [prices, setPrices]               = useState<IndividualPrice[]>([])
   const [loadingPrices, setLoadingPrices] = useState(true)
   const [selectedIdx, setSelectedIdx]     = useState(0)
   const [groupCount, setGroupCount]       = useState(1)   // лише для Групового МК
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
 
   useEffect(() => {
     setLoadingPrices(true)
@@ -308,6 +309,19 @@ function CertificateContent({ studio }: { studio: StudioInfo }) {
   const totalPrice = isGroup ? unitPrice * groupCount : unitPrice
   // Кількість для відображення
   const displayCount = isGroup ? groupCount : (selected?.peopleCount ?? 1)
+
+  const generateLink = () => {
+    if (!selected || !origin) return
+    const payload = {
+      studio: studio.id,
+      mkLabel: selected.label,
+      peopleCount: displayCount,
+      price: totalPrice,
+    }
+    const encoded = btoa(JSON.stringify(payload))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    setGeneratedLink(`${origin}${studio.basePath}/certificate?d=${encoded}`)
+  }
 
   return (
     <section className={styles.card}>
@@ -373,6 +387,27 @@ function CertificateContent({ studio }: { studio: StudioInfo }) {
             </div>
           )}
 
+          {/* Кнопка генерації */}
+          <button
+            type="button"
+            className={styles.generateBtn}
+            disabled={!selected}
+            onClick={() => { setGeneratedLink(null); generateLink() }}
+          >
+            Згенерувати посилання
+          </button>
+
+          {/* Результат */}
+          {generatedLink && (
+            <div className={styles.generatedBlock}>
+              <p className={styles.generatedLabel}>Посилання для клієнта:</p>
+              <div className={styles.linkRow}>
+                <span className={styles.link}>{generatedLink}</span>
+                <CopyButton text={generatedLink} />
+              </div>
+            </div>
+          )}
+
         </div>
       )}
     </section>
@@ -412,7 +447,7 @@ function StudioTab({ studio, origin }: { studio: StudioInfo; origin: string }) {
       <div className={styles.tabContent}>
         {activeMenu === 'group'       && <GroupContent studio={studio} origin={origin} />}
         {activeMenu === 'individual'  && <IndividualContent studio={studio} origin={origin} />}
-        {activeMenu === 'certificate' && <CertificateContent studio={studio} />}
+        {activeMenu === 'certificate' && <CertificateContent studio={studio} origin={origin} />}
       </div>
     </div>
   )

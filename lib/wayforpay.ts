@@ -115,8 +115,10 @@ export interface PendingOrderData {
   studio: string // studio id: 'sumy' | 'if'
   cert?: string  // certificateCode (тільки для cert+payment)
   cri?: number   // certRowIndex (тільки для cert+payment)
-  tp?: 'individual' // type — тільки для індивідуального МК
-  amt?: number   // totalPrice для індивідуального МК
+  tp?: 'individual' | 'cert-purchase'  // type
+  amt?: number    // totalPrice (individual МК або certificate)
+  certCode?: string  // cert-purchase: згенерований код сертифіката
+  mkLabel?: string   // cert-purchase: назва МК формату
 }
 
 export function encodeOrderData(data: PendingOrderData): string {
