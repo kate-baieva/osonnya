@@ -284,22 +284,30 @@ function IndividualContent({ studio, origin }: { studio: StudioInfo; origin: str
 // ─── Сертифікат ──────────────────────────────────────────
 
 function CertificateContent({ studio }: { studio: StudioInfo }) {
-  const [prices, setPrices]           = useState<IndividualPrice[]>([])
+  const [prices, setPrices]               = useState<IndividualPrice[]>([])
   const [loadingPrices, setLoadingPrices] = useState(true)
-  const [selectedIdx, setSelectedIdx] = useState(0)
+  const [selectedIdx, setSelectedIdx]     = useState(0)
+  const [groupCount, setGroupCount]       = useState(1)   // лише для Групового МК
 
   useEffect(() => {
     setLoadingPrices(true)
+    setSelectedIdx(0)
+    setGroupCount(1)
     fetch(`/api/mk-prices?studio=${studio.id}`)
       .then((r) => r.json())
-      .then((data: IndividualPrice[]) => {
-        if (Array.isArray(data)) setPrices(data)
-      })
+      .then((data: IndividualPrice[]) => { if (Array.isArray(data)) setPrices(data) })
       .finally(() => setLoadingPrices(false))
   }, [studio.id])
 
-  const selected = prices[selectedIdx]
-  const hasWeekend = selected?.priceWeekend != null
+  const selected  = prices[selectedIdx]
+  const isGroup   = selected?.label.toLowerCase().includes('груповий')
+
+  // Ціна за сертифікат: завжди ціна вихідного дня (якщо є)
+  const unitPrice = selected ? (selected.priceWeekend ?? selected.priceWeekday) : 0
+  // Для Групового МК множимо на кількість; для решти — фіксована ціна з таблиці
+  const totalPrice = isGroup ? unitPrice * groupCount : unitPrice
+  // Кількість для відображення
+  const displayCount = isGroup ? groupCount : (selected?.peopleCount ?? 1)
 
   return (
     <section className={styles.card}>
@@ -317,23 +325,34 @@ function CertificateContent({ studio }: { studio: StudioInfo }) {
             <select
               className={styles.indivSelect}
               value={selectedIdx}
-              onChange={(e) => setSelectedIdx(Number(e.target.value))}
+              onChange={(e) => { setSelectedIdx(Number(e.target.value)); setGroupCount(1) }}
             >
               {prices.map((p, i) => (
-                <option key={i} value={i}>
-                  {p.label}
-                </option>
+                <option key={i} value={i}>{p.label}</option>
               ))}
             </select>
           </div>
 
-          {/* Кількість учасників — readonly, береться з формату */}
+          {/* Кількість учасників */}
           {selected && (
             <div className={styles.indivField}>
               <label className={styles.indivLabel}>Кількість учасників</label>
-              <div className={styles.certPeopleCount}>
-                {selected.peopleCount} {selected.peopleCount === 1 ? 'учасник' : 'учасники/ків'}
-              </div>
+              {isGroup ? (
+                // Для Групового МК — лічильник
+                <div className={styles.counter}>
+                  <button type="button" className={styles.counterBtn}
+                    disabled={groupCount <= 1}
+                    onClick={() => setGroupCount((n) => Math.max(1, n - 1))}>−</button>
+                  <span className={styles.counterValue}>{groupCount}</span>
+                  <button type="button" className={styles.counterBtn}
+                    onClick={() => setGroupCount((n) => n + 1)}>+</button>
+                </div>
+              ) : (
+                // Для решти — фіксована, береться з формату
+                <div className={styles.certPeopleCount}>
+                  {displayCount} {displayCount === 1 ? 'учасник' : 'учасники/ків'}
+                </div>
+              )}
             </div>
           )}
 
@@ -343,17 +362,12 @@ function CertificateContent({ studio }: { studio: StudioInfo }) {
               <div className={styles.indivSummaryMain}>
                 <span className={styles.indivSummaryLabel}>Вартість</span>
                 <span className={styles.indivSummaryPrice}>
-                  {selected.priceWeekday.toLocaleString('uk-UA')} грн
-                  {hasWeekend && (
-                    <span className={styles.certWeekendPrice}>
-                      {' '}/ {selected.priceWeekend!.toLocaleString('uk-UA')} грн
-                    </span>
-                  )}
+                  {totalPrice.toLocaleString('uk-UA')} грн
                 </span>
               </div>
-              {hasWeekend && (
+              {isGroup && groupCount > 1 && (
                 <span className={styles.certPriceNote}>
-                  будній день / вихідний день
+                  {groupCount} × {unitPrice.toLocaleString('uk-UA')} грн
                 </span>
               )}
             </div>
