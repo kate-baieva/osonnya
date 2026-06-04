@@ -281,6 +281,90 @@ function IndividualContent({ studio, origin }: { studio: StudioInfo; origin: str
   )
 }
 
+// ─── Сертифікат ──────────────────────────────────────────
+
+function CertificateContent({ studio }: { studio: StudioInfo }) {
+  const [prices, setPrices]           = useState<IndividualPrice[]>([])
+  const [loadingPrices, setLoadingPrices] = useState(true)
+  const [selectedIdx, setSelectedIdx] = useState(0)
+
+  useEffect(() => {
+    setLoadingPrices(true)
+    fetch(`/api/mk-prices?studio=${studio.id}`)
+      .then((r) => r.json())
+      .then((data: IndividualPrice[]) => {
+        if (Array.isArray(data)) setPrices(data)
+      })
+      .finally(() => setLoadingPrices(false))
+  }, [studio.id])
+
+  const selected = prices[selectedIdx]
+  const hasWeekend = selected?.priceWeekend != null
+
+  return (
+    <section className={styles.card}>
+      <h3 className={styles.cardTitle}>Параметри сертифіката</h3>
+      <p className={styles.cardDesc}>Оберіть формат та кількість учасників — ціна підтягується автоматично</p>
+
+      {loadingPrices ? (
+        <p className={styles.empty}>Завантаження цін…</p>
+      ) : (
+        <div className={styles.indivForm}>
+
+          {/* Формат МК */}
+          <div className={styles.indivField}>
+            <label className={styles.indivLabel}>Формат майстер-класу</label>
+            <select
+              className={styles.indivSelect}
+              value={selectedIdx}
+              onChange={(e) => setSelectedIdx(Number(e.target.value))}
+            >
+              {prices.map((p, i) => (
+                <option key={i} value={i}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Кількість учасників — readonly, береться з формату */}
+          {selected && (
+            <div className={styles.indivField}>
+              <label className={styles.indivLabel}>Кількість учасників</label>
+              <div className={styles.certPeopleCount}>
+                {selected.peopleCount} {selected.peopleCount === 1 ? 'учасник' : 'учасники/ків'}
+              </div>
+            </div>
+          )}
+
+          {/* Вартість */}
+          {selected && (
+            <div className={styles.indivSummary}>
+              <div className={styles.indivSummaryMain}>
+                <span className={styles.indivSummaryLabel}>Вартість</span>
+                <span className={styles.indivSummaryPrice}>
+                  {selected.priceWeekday.toLocaleString('uk-UA')} грн
+                  {hasWeekend && (
+                    <span className={styles.certWeekendPrice}>
+                      {' '}/ {selected.priceWeekend!.toLocaleString('uk-UA')} грн
+                    </span>
+                  )}
+                </span>
+              </div>
+              {hasWeekend && (
+                <span className={styles.certPriceNote}>
+                  будній день / вихідний день
+                </span>
+              )}
+            </div>
+          )}
+
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ─── Заглушка ────────────────────────────────────────────
 
 function ComingSoon({ label }: { label: string }) {
@@ -314,7 +398,7 @@ function StudioTab({ studio, origin }: { studio: StudioInfo; origin: string }) {
       <div className={styles.tabContent}>
         {activeMenu === 'group'       && <GroupContent studio={studio} origin={origin} />}
         {activeMenu === 'individual'  && <IndividualContent studio={studio} origin={origin} />}
-        {activeMenu === 'certificate' && <ComingSoon label="Сертифікат" />}
+        {activeMenu === 'certificate' && <CertificateContent studio={studio} />}
       </div>
     </div>
   )

@@ -406,6 +406,45 @@
   color: #9b4a1a;
 }
 
+/* Select (формат МК) */
+.indivSelect {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #e0d4c8;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #2d1f0f;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  width: 100%;
+  max-width: 360px;
+}
+
+.indivSelect:focus {
+  border-color: #9b6b3a;
+}
+
+/* Кількість учасників (readonly) */
+.certPeopleCount {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2d1f0f;
+  padding: 0.5rem 0;
+}
+
+/* Ціна вихідного дня */
+.certWeekendPrice {
+  font-size: 1rem;
+  color: #c07840;
+}
+
+.certPriceNote {
+  font-size: 0.78rem;
+  color: #9b8878;
+}
+
 /* Кнопка генерації */
 .generateBtn {
   padding: 0.7rem 1.75rem;

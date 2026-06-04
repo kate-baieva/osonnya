@@ -415,12 +415,14 @@ export interface IndividualPrice {
   priceWeekend: number | null  // null для студій без різниці будній/вихідний
 }
 
-export async function getIndividualPrices(spreadsheetId?: string): Promise<IndividualPrice[]> {
-  const sid = spreadsheetId ?? config.spreadsheetId
+// Спільна логіка читання аркуша Prices
+async function parsePricesSheet(
+  spreadsheetId: string,
+  includeGroup: boolean,   // чи включати Груповий МК
+): Promise<IndividualPrice[]> {
   const sheets = getSheets()
-
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sid,
+    spreadsheetId,
     range: 'Prices!A1:D25',
   })
 
@@ -428,34 +430,45 @@ export async function getIndividualPrices(spreadsheetId?: string): Promise<Indiv
   const result: IndividualPrice[] = []
 
   for (const row of rows) {
-    const service  = (row[0] ?? '').trim()
+    const service   = (row[0] ?? '').trim()
     const price1Str = (row[2] ?? '').trim()
     const price2Str = (row[3] ?? '').trim()
 
-    // Пропускаємо порожні, заголовки, Груповий МК та Оренда
     if (!service || !price1Str) continue
     const low = service.toLowerCase()
-    if (low.includes('service') || low.includes('груповий') || low.includes('оренд')) continue
 
-    // Кількість — з назви (найнадійніше, бо в Amount є друкарські помилки)
-    // Матчить: "3 людини", "5 людей", "10 люди"
+    // Завжди пропускаємо: заголовки та Оренда
+    if (low.includes('service') || low.includes('оренд')) continue
+    // Груповий МК — включаємо лише якщо потрібно
+    if (!includeGroup && low.includes('груповий')) continue
+
+    // Кількість учасників — з назви (бо в Amount є друкарські помилки)
     const nameMatch = service.match(/(\d+)\s*люд/)
-    const peopleCount = nameMatch ? parseInt(nameMatch[1])
-      : service.toLowerCase().includes('парний') ? 2
-      : null
-
+    let peopleCount: number | null = nameMatch ? parseInt(nameMatch[1]) : null
+    if (!peopleCount) {
+      if (low.includes('парний'))   peopleCount = 2
+      if (low.includes('груповий')) peopleCount = 1
+    }
     if (!peopleCount) continue
 
     const priceWeekday = parseInt(price1Str)
     const priceWeekend = price2Str && !isNaN(parseInt(price2Str)) ? parseInt(price2Str) : null
-
     if (isNaN(priceWeekday)) continue
 
     result.push({ peopleCount, label: service, priceWeekday, priceWeekend })
   }
 
-  // Сортуємо за кількістю учасників
   return result.sort((a, b) => a.peopleCount - b.peopleCount)
+}
+
+// Тільки індивідуальні МК (для сторінки індивідуального запису)
+export async function getIndividualPrices(spreadsheetId?: string): Promise<IndividualPrice[]> {
+  return parsePricesSheet(spreadsheetId ?? config.spreadsheetId, false)
+}
+
+// Всі типи МК — для сертифікатів
+export async function getAllMkPrices(spreadsheetId?: string): Promise<IndividualPrice[]> {
+  return parsePricesSheet(spreadsheetId ?? config.spreadsheetId, true)
 }
 
 export async function redeemCertificate(rowIndex: number, spreadsheetId?: string): Promise<void> {
