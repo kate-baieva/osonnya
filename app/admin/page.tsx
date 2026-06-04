@@ -318,7 +318,8 @@ function CertificateContent({ studio, origin }: { studio: StudioInfo; origin: st
       peopleCount: displayCount,
       price: totalPrice,
     }
-    const encoded = btoa(JSON.stringify(payload))
+    // unescape(encodeURIComponent(...)) — безпечний btoa для кирилиці
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
     setGeneratedLink(`${origin}${studio.basePath}/certificate?d=${encoded}`)
   }

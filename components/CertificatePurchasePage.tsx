@@ -30,7 +30,8 @@ type FormInput = z.infer<typeof formSchema>
 
 function decodeParams(raw: string): CertParams | null {
   try {
-    const json = atob(raw.replace(/-/g, '+').replace(/_/g, '/'))
+    const b64 = raw.replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(escape(atob(b64)))
     return JSON.parse(json) as CertParams
   } catch { return null }
 }
