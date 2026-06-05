@@ -75,13 +75,12 @@ export async function POST(req: NextRequest) {
   const orderReference = encodeOrderData({
     n: name, s: surname, p: phone, i: instagram,
     c: peopleCount,
-    d: new Date().toISOString(),
+    d: new Date().toISOString().slice(0, 10),
     st: 'booked',
     studio: studioId,
-    tp: 'cert-purchase',
+    tp: 'cp' as 'cert-purchase',  // скорочено: 'cp' = cert-purchase
     amt: price,
-    certCode,
-    mkLabel,
+    cc: certCode,
   })
 
   try {

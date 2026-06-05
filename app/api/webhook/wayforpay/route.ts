@@ -53,20 +53,27 @@ export async function POST(req: NextRequest) {
         )
 
         // ── Покупка сертифіката ──────────────────────────────────────────
-        if (orderData.tp === 'cert-purchase') {
-          if (!orderData.certCode) {
-            console.error('[webhook/wayforpay] ❌ cert-purchase без certCode')
+        // tp може бути 'cert-purchase' (старий формат) або 'cp' (скорочений)
+        if (orderData.tp === 'cert-purchase' || (orderData.tp as string) === 'cp') {
+          // certCode зберігається як 'cc' (нові замовлення) або 'certCode' (старий формат)
+          const certCode = orderData.cc ?? (orderData as unknown as Record<string, string>).certCode
+          if (!certCode) {
+            console.error('[webhook/wayforpay] ❌ cert-purchase без certCode/cc')
           } else {
+            // mkType реконструюємо з кількості учасників
+            const mkType = orderData.c === 1 ? 'group'
+              : orderData.c === 2 ? 'pair'
+              : 'individual'
             await createCertificateRecord({
               buyerName: clientFullName,
               buyerPhone: orderData.p,
               buyerInstagram: orderData.i ?? '',
               peopleCount: orderData.c,
-              mkType: orderData.mkLabel ?? '',
+              mkType,
               price: orderData.amt ?? paidAmount,
-              certCode: orderData.certCode,
+              certCode,
             }, spreadsheetId)
-            console.log(`[webhook/wayforpay] ✅ сертифікат створено: ${orderData.certCode}`)
+            console.log(`[webhook/wayforpay] ✅ сертифікат створено: ${certCode}`)
           }
           return NextResponse.json(buildWebhookResponse(orderReference))
         }

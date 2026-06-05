@@ -105,25 +105,49 @@ export function verifyWebhookSignature(payload: Record<string, unknown>): boolea
 // Таблиця не чіпається до підтвердження оплати — все записується у вебхуку.
 
 export interface PendingOrderData {
-  n: string      // name
-  s: string      // surname
+  n: string      // name (обрізається до 15 символів)
+  s: string      // surname (обрізається до 15 символів)
   p: string      // phone
-  i: string      // instagram ('' якщо немає)
+  i: string      // instagram (обрізається до 20 символів)
   c: number      // peopleCount
-  d: string      // mkDatetime  (для індивід.: "YYYY-MM-DD HH:MM")
+  d: string      // mkDatetime / purchase date
   st: string     // status: 'booked' | 'cert+payment'
   studio: string // studio id: 'sumy' | 'if'
-  cert?: string  // certificateCode (тільки для cert+payment)
-  cri?: number   // certRowIndex (тільки для cert+payment)
-  tp?: 'individual' | 'cert-purchase'  // type
-  amt?: number    // totalPrice (individual МК або certificate)
-  certCode?: string  // cert-purchase: згенерований код сертифіката
-  mkLabel?: string   // cert-purchase: назва МК формату
+  cert?: string  // certificateCode (cert+payment)
+  cri?: number   // certRowIndex (cert+payment)
+  tp?: 'individual' | 'cert-purchase'
+  amt?: number   // totalPrice
+  cc?: string    // certCode для cert-purchase (скорочено з certCode)
+  // mkLabel НЕ зберігаємо — занадто довге, реконструюємо з peopleCount
+}
+
+// Обрізає рядок до maxBytes байт (не символів), щоб коректно працювати з кирилицею
+function sliceToBytes(str: string, maxBytes: number): string {
+  let bytes = 0, result = ''
+  for (const ch of str) {
+    const b = Buffer.from(ch).length
+    if (bytes + b > maxBytes) break
+    bytes += b
+    result += ch
+  }
+  return result
 }
 
 export function encodeOrderData(data: PendingOrderData): string {
-  const encoded = Buffer.from(JSON.stringify(data)).toString('base64url')
-  return `osonnya_${encoded}`
+  // Обрізаємо довгі поля за байтами (кирилиця = 2 байти/символ)
+  // Щоб сумарна довжина orderReference не перевищила 255 символів (ліміт WayForPay)
+  const compact = {
+    ...data,
+    n: sliceToBytes(data.n, 16),   // ~8 кирилічних символів
+    s: sliceToBytes(data.s, 16),
+    i: sliceToBytes(data.i, 20),
+  }
+  const encoded = Buffer.from(JSON.stringify(compact)).toString('base64url')
+  const ref = `osonnya_${encoded}`
+  if (ref.length > 255) {
+    console.warn(`[WayForPay] orderReference довжина ${ref.length} > 255 — можливі проблеми з WayForPay`)
+  }
+  return ref
 }
 
 export function decodeOrderData(orderReference: string): PendingOrderData | null {
