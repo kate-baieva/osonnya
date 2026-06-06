@@ -19,7 +19,7 @@ export default function IFSuccessPage() {
           як знайти вхід до студії.
         </p>
         <a
-          href="https://www.instagram.com/osonnya.ceramics.if/"
+          href="https://www.instagram.com/stories/highlights/18111694864912252/"
           target="_blank"
           rel="noopener noreferrer"
           className={styles.igLink}
