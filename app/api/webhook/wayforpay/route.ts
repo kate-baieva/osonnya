@@ -12,6 +12,8 @@ import {
   findOrderRowByReference,
   createCertificateRecord,
 } from '@/lib/google-sheets'
+import { sendPaperCertNotification } from '@/lib/mailer'
+import { getStudio } from '@/lib/studios'
 import { getSpreadsheetId } from '@/lib/studios'
 
 export async function POST(req: NextRequest) {
@@ -74,6 +76,23 @@ export async function POST(req: NextRequest) {
               certCode,
             }, spreadsheetId)
             console.log(`[webhook/wayforpay] ✅ сертифікат створено: ${certCode}`)
+
+            // Email-сповіщення для паперового сертифіката
+            if (orderData.ct === 'p') {
+              const studio = getStudio(studioId)
+              sendPaperCertNotification({
+                certCode,
+                mkType: mkType === 'group' ? 'Груповий МК'
+                  : mkType === 'pair' ? 'Парний МК'
+                  : `Індивідуальний МК (${orderData.c} учасн.)`,
+                peopleCount: orderData.c,
+                price: orderData.amt ?? paidAmount,
+                buyerName: clientFullName,
+                buyerPhone: orderData.p,
+                buyerInstagram: orderData.i ?? '',
+                studioName: studio?.name ?? studioId,
+              }).catch((e) => console.warn('[webhook] email не надіслано:', e))
+            }
           }
           return NextResponse.json(buildWebhookResponse(orderReference))
         }

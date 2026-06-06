@@ -117,7 +117,8 @@ export interface PendingOrderData {
   cri?: number   // certRowIndex (cert+payment)
   tp?: 'individual' | 'cert-purchase'
   amt?: number   // totalPrice
-  cc?: string    // certCode для cert-purchase (скорочено з certCode)
+  cc?: string    // certCode для cert-purchase
+  ct?: 'p' | 'd' // certType: 'p'=paper, 'd'=digital (тільки cert-purchase)
   // mkLabel НЕ зберігаємо — занадто довге, реконструюємо з peopleCount
 }
 

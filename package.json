@@ -8,13 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "@types/nodemailer": "^8.0.0",
+    "googleapis": "^140.0.1",
     "next": "14.2.5",
+    "nodemailer": "^8.0.10",
     "react": "^18",
     "react-dom": "^18",
-    "googleapis": "^140.0.1",
     "react-hook-form": "^7.52.1",
-    "zod": "^3.23.8",
-    "@hookform/resolvers": "^3.9.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20",

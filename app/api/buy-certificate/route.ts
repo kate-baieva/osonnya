@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createInvoice, encodeOrderData } from '@/lib/wayforpay'
 import { createCertificateRecord, findOrCreateClient } from '@/lib/google-sheets'
+import { sendPaperCertNotification } from '@/lib/mailer'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 
 const bodySchema = z.object({
@@ -65,6 +66,14 @@ export async function POST(req: NextRequest) {
         certCode,
       }, spreadsheetId)
       console.log(`[buy-certificate] ✅ TEST сертифікат створено: ${certCode}`)
+      // Email-сповіщення для паперового сертифіката
+      if (certType === 'paper') {
+        sendPaperCertNotification({
+          certCode, mkType: mkLabel, peopleCount, price,
+          buyerName: clientFullName, buyerPhone: phone, buyerInstagram: instagram,
+          studioName: studio.name,
+        }).catch((e) => console.warn('[buy-certificate] email не надіслано:', e))
+      }
     } catch (err) {
       console.error('[buy-certificate] ❌ TEST save:', err)
       return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
@@ -78,9 +87,10 @@ export async function POST(req: NextRequest) {
     d: new Date().toISOString().slice(0, 10),
     st: 'booked',
     studio: studioId,
-    tp: 'cp' as 'cert-purchase',  // скорочено: 'cp' = cert-purchase
+    tp: 'cp' as 'cert-purchase',
     amt: price,
     cc: certCode,
+    ct: certType === 'paper' ? 'p' : 'd',
   })
 
   try {
