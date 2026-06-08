@@ -14,6 +14,14 @@ interface CertValidation {
   reason?: string
 }
 
+const MK_NAME = 'Груповий майстер-клас з ліплення з глини'
+
+function pluralUchasnyk(n: number): string {
+  if (n % 10 === 1 && n % 100 !== 11) return 'учасник'
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'учасники'
+  return 'учасників'
+}
+
 interface Props {
   selectedSlot: Slot | null
   studioId: string
@@ -239,22 +247,62 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
             <div className={styles.certMixed}>
               <p>
                 Сертифікат {certCode} діє до{' '}
-                {new Date(certVal.expiresAt!).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}.
-              </p>
-              <p>
-                Сертифікат {certCode} діє на {certVal.peopleCount}{' '}
+                {new Date(certVal.expiresAt!).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}{' '}
+                та покриває {certVal.peopleCount}{' '}
                 {certVal.peopleCount === 1 ? 'учасника' : 'учасників'}.
-                Вартість участі додаткових учасників — {pricePerPerson} грн.
-              </p>
-              <p className={styles.mixedPayLine}>
-                Внесіть, будь ласка, передоплату за додаткових учасників —{' '}
-                <strong>{pricePerPerson} грн</strong>.
               </p>
             </div>
           )}
 
           {certVal.status === 'invalid' && (
             <p className={styles.certInvalid}>{certVal.reason}</p>
+          )}
+        </div>
+      )}
+
+      {/* Підсумок «До сплати» */}
+      {selectedSlot && (payMethod === 'card' || certVal.status === 'valid') && (
+        <div className={styles.paySummary}>
+          <span className={styles.paySummaryTitle}>До сплати</span>
+
+          {/* Оплата карткою — повна сума */}
+          {payMethod === 'card' && (
+            <div className={styles.payLine}>
+              <span className={styles.payLineText}>
+                {MK_NAME}, {peopleCount} {pluralUchasnyk(peopleCount)}
+              </span>
+              <span className={styles.payLineSum}>
+                {(peopleCount * pricePerPerson).toLocaleString('uk-UA')} грн
+              </span>
+            </div>
+          )}
+
+          {/* Сертифікат покриває всіх */}
+          {payMethod === 'certificate' && certVal.status === 'valid' && !isMixed && (
+            <div className={styles.payLine}>
+              <span className={styles.payLineText}>Сума до сплати</span>
+              <span className={styles.payLineSum}>0 грн</span>
+            </div>
+          )}
+
+          {/* Сертифікат покриває частину */}
+          {payMethod === 'certificate' && certVal.status === 'valid' && isMixed && (
+            <>
+              <div className={styles.payLine}>
+                <span className={styles.payLineText}>
+                  {MK_NAME} по сертифікату, {certCovers} {pluralUchasnyk(certCovers)}
+                </span>
+                <span className={styles.payLineSum}>0 грн</span>
+              </div>
+              <div className={styles.payLine}>
+                <span className={styles.payLineText}>
+                  {MK_NAME}, {extraCount} {pluralUchasnyk(extraCount)}
+                </span>
+                <span className={styles.payLineSum}>
+                  {(extraCount * pricePerPerson).toLocaleString('uk-UA')} грн
+                </span>
+              </div>
+            </>
           )}
         </div>
       )}

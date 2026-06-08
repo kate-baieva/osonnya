@@ -101,11 +101,12 @@ export async function POST(req: NextRequest) {
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
-      const description = `Передоплата (сертифікат + ${extraCount} дод. учасн.) · МК ${slot.date} о ${slot.time}`
+      const extraAmount = extraCount * studio.pricePerPerson
+      const description = `Сертифікат + ${extraCount} дод. учасн. · МК ${slot.date} о ${slot.time}`
       const { invoiceUrl } = await createInvoice({
         orderReference,
         description,
-        amount: studio.pricePerPerson,
+        amount: extraAmount,
         returnUrl: `${baseUrl}/api/payment/return?studio=${studioId}`,
       })
       return NextResponse.json({ paymentUrl: invoiceUrl })
@@ -128,11 +129,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
-    const description = `Майстер-клас ${slot.date} о ${slot.time}`
+    const totalAmount = peopleCount * studio.pricePerPerson
+    const description = `Майстер-клас ${slot.date} о ${slot.time} · ${peopleCount} учасн.`
     const { invoiceUrl } = await createInvoice({
       orderReference,
       description,
-      amount: studio.pricePerPerson,
+      amount: totalAmount,
       returnUrl: `${baseUrl}/api/payment/return?studio=${studioId}`,
     })
     return NextResponse.json({ paymentUrl: invoiceUrl })

@@ -231,3 +231,42 @@
   color: #7a5230 !important;
   font-size: 0.9rem !important;
 }
+
+/* Підсумок «До сплати» */
+.paySummary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fdf7f2;
+  border: 1px solid #e8d9cc;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.paySummaryTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #9b8878;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.payLineText {
+  font-size: 0.9rem;
+  color: #5a3e28;
+  line-height: 1.45;
+}
+
+.payLineSum {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #9b6b3a;
+  white-space: nowrap;
+}
