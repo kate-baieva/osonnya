@@ -185,7 +185,19 @@ async function findNextRow(sheetName: string, startRow: number, spreadsheetId?: 
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
 
-// Знаходить клієнта за телефоном або додає нового. Повертає повне ім'я.
+// Нормалізація для порівняння клієнтів
+function normName(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+// Телефон → лише останні 9 цифр (щоб 0XX, +380XX, 380XX збігалися)
+function normPhone(p: string): string {
+  const digits = p.replace(/\D/g, '')
+  return digits.slice(-9)
+}
+
+// Шукає клієнта за повним збігом імені + прізвища + телефону.
+// Якщо знайдено — повертає наявне повне ім'я (новий запис не додається).
+// Інакше — додає новий запис. Повертає повне ім'я.
 export async function findOrCreateClient(
   name: string,
   surname: string,
@@ -202,10 +214,18 @@ export async function findOrCreateClient(
     range: `${config.sheets.clients}!A${startRow}:D`,
   })
 
+  const wantName    = normName(name)
+  const wantSurname = normName(surname)
+  const wantPhone   = normPhone(phone)
+
   const rows = (res.data.values ?? []) as string[][]
   for (const row of rows) {
-    const existingPhone = (row[2] ?? '').trim()
-    if (existingPhone === phone) {
+    const existingName    = normName(row[0] ?? '')
+    const existingSurname = normName(row[1] ?? '')
+    const existingPhone   = normPhone(row[2] ?? '')
+
+    // Повний збіг усіх трьох полів — використовуємо наявний запис
+    if (existingName === wantName && existingSurname === wantSurname && existingPhone === wantPhone) {
       return `${(row[0] ?? '').trim()} ${(row[1] ?? '').trim()}`.trim()
     }
   }
