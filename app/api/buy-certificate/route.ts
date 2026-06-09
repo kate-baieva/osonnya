@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import crypto from 'crypto'
 import { createInvoice, encodeOrderData } from '@/lib/wayforpay'
-import { createCertificateRecord, findOrCreateClient } from '@/lib/google-sheets'
+import { createCertificateRecord, findOrCreateClient, getAllMkPrices } from '@/lib/google-sheets'
+import { resolveCertificatePrice } from '@/lib/pricing'
 import { sendPaperCertNotification } from '@/lib/mailer'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 
 const bodySchema = z.object({
   studio:      z.string().min(1),
-  mkLabel:     z.string().min(1),
-  peopleCount: z.number().int().positive(),
-  price:       z.number().positive(),
+  mkLabel:     z.string().min(1).max(120),
+  peopleCount: z.number().int().positive().max(50),
+  // price клієнта НЕ використовується — ціна рахується на сервері (захист від підробки)
+  price:       z.number().positive().optional(),
   name:        z.string().min(2).max(50),
   surname:     z.string().min(2).max(50),
   phone:       z.string().min(1).regex(/^\+?3?8?0?\d{9}$|^0\d{9}$/, 'Некоректний телефон'),
@@ -18,12 +21,12 @@ const bodySchema = z.object({
   skipPayment: z.boolean().optional(),
 })
 
-// Генерує унікальний код сертифіката: WEB-XXXXXX
+// Генерує унікальний код сертифіката: WEB-XXXXXX (криптостійкий)
 function generateCertCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = 'WEB-'
   for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
+    code += chars[crypto.randomInt(chars.length)]
   }
   return code
 }
@@ -42,13 +45,31 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { studio: studioId, mkLabel, peopleCount, price,
+  const { studio: studioId, mkLabel, peopleCount,
           name, surname, phone, instagram, certType, skipPayment } = parsed.data
 
   const studio = getStudio(studioId)
   if (!studio) return NextResponse.json({ error: 'Невідома студія' }, { status: 400 })
 
   const spreadsheetId = getSpreadsheetId(studioId)
+
+  // ── Ціна рахується на сервері з таблиці Prices (НЕ довіряємо клієнту) ──────
+  let price: number
+  try {
+    const prices = await getAllMkPrices(spreadsheetId)
+    const resolved = resolveCertificatePrice(prices, mkLabel, peopleCount)
+    if (resolved === null) {
+      return NextResponse.json(
+        { error: 'Невідомий формат майстер-класу або кількість учасників' },
+        { status: 400 }
+      )
+    }
+    price = resolved
+  } catch (err) {
+    console.error('[buy-certificate] ❌ price lookup:', err)
+    return NextResponse.json({ error: 'Помилка розрахунку ціни. Спробуйте ще раз.' }, { status: 500 })
+  }
+
   const certCode = generateCertCode()
   const baseUrl  = process.env.NEXT_PUBLIC_BASE_URL!
 

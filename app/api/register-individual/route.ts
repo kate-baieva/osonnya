@@ -5,7 +5,9 @@ import {
   appendOrder,
   validateCertificate,
   redeemCertificate,
+  getIndividualPrices,
 } from '@/lib/google-sheets'
+import { resolveIndividualPrice } from '@/lib/pricing'
 import { createInvoice, encodeOrderData } from '@/lib/wayforpay'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 import { z } from 'zod'
@@ -15,10 +17,11 @@ const INDIVIDUAL_PREPAYMENT = 700
 
 const bodySchema = formSchema.extend({
   studio:          z.string().min(1),
-  date:            z.string().min(1),   // YYYY-MM-DD
-  time:            z.string().min(1),   // HH:MM
-  totalPrice:      z.number().positive(),
-  certificateCode: z.string().optional(),
+  date:            z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Некоректна дата'),
+  time:            z.string().regex(/^\d{1,2}:\d{2}$/, 'Некоректний час'),
+  // totalPrice клієнта НЕ використовується — рахується на сервері
+  totalPrice:      z.number().positive().optional(),
+  certificateCode: z.string().max(40).optional(),
   skipPayment:     z.boolean().optional(), // тільки для dev-тестування
 })
 
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { name, surname, phone, instagram, peopleCount,
-          studio: studioId, date, time, totalPrice, certificateCode,
+          studio: studioId, date, time, certificateCode,
           skipPayment } = parsed.data
 
   const studio = getStudio(studioId)
@@ -45,6 +48,23 @@ export async function POST(req: NextRequest) {
 
   const spreadsheetId = getSpreadsheetId(studioId)
   const mkDatetime     = `${date} ${time}`
+
+  // ── Ціна рахується на сервері з таблиці Prices (НЕ довіряємо клієнту) ──────
+  let totalPrice: number
+  try {
+    const prices = await getIndividualPrices(spreadsheetId)
+    const resolved = resolveIndividualPrice(prices, peopleCount, date)
+    if (resolved === null) {
+      return NextResponse.json(
+        { error: 'Невідома кількість учасників для індивідуального МК' },
+        { status: 400 }
+      )
+    }
+    totalPrice = resolved
+  } catch (err) {
+    console.error('[register-individual] ❌ price lookup:', err)
+    return NextResponse.json({ error: 'Помилка розрахунку ціни. Спробуйте ще раз.' }, { status: 500 })
+  }
 
   // ─── Оплата сертифікатом ───────────────────────────────────────────────────
   if (certificateCode) {
