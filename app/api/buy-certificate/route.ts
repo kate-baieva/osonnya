@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import crypto from 'crypto'
 import { createInvoice, encodeOrderData } from '@/lib/wayforpay'
-import { createCertificateRecord, findOrCreateClient, getAllMkPrices } from '@/lib/google-sheets'
+import { createCertificateRecord, findOrCreateClient, getAllMkPrices, getNextCertNumber } from '@/lib/google-sheets'
 import { resolveCertificatePrice } from '@/lib/pricing'
 import { sendPaperCertNotification } from '@/lib/mailer'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
@@ -21,15 +20,6 @@ const bodySchema = z.object({
   skipPayment: z.boolean().optional(),
 })
 
-// Генерує унікальний код сертифіката: WEB-XXXXXX (криптостійкий)
-function generateCertCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = 'WEB-'
-  for (let i = 0; i < 6; i++) {
-    code += chars[crypto.randomInt(chars.length)]
-  }
-  return code
-}
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -70,7 +60,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Помилка розрахунку ціни. Спробуйте ще раз.' }, { status: 500 })
   }
 
-  const certCode = generateCertCode()
+  // Числовий номер сертифіката (продовжує наявну нумерацію в таблиці)
+  let certCode: string
+  try {
+    certCode = await getNextCertNumber(spreadsheetId)
+  } catch (err) {
+    console.error('[buy-certificate] ❌ getNextCertNumber:', err)
+    return NextResponse.json({ error: 'Помилка генерації номера. Спробуйте ще раз.' }, { status: 500 })
+  }
   const baseUrl  = process.env.NEXT_PUBLIC_BASE_URL!
 
   // ── Тест-режим (тільки localhost) ──────────────────────────────────────────

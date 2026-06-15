@@ -491,6 +491,30 @@ export async function getAllMkPrices(spreadsheetId?: string): Promise<Individual
   return parsePricesSheet(spreadsheetId ?? config.spreadsheetId, true)
 }
 
+// Повертає наступний числовий номер сертифіката (продовжує наявну нумерацію).
+// Коди з літерами (старі WEB-...) ігноруються. Якщо числових немає — починає з 10000.
+export async function getNextCertNumber(spreadsheetId?: string): Promise<string> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const startRow = config.dataRows.certificates
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sid,
+    range: `${config.sheets.certificates}!G${startRow}:G`,
+  })
+
+  const rows = (res.data.values ?? []) as string[][]
+  let max = 9999  // щоб перший номер був 10000
+  for (const r of rows) {
+    const v = (r[0] ?? '').trim()
+    if (/^\d+$/.test(v)) {
+      const n = parseInt(v, 10)
+      if (n > max) max = n
+    }
+  }
+  return String(max + 1)
+}
+
 // Записує новий сертифікат після успішної оплати
 export async function createCertificateRecord(
   data: {
