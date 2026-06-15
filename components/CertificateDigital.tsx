@@ -153,13 +153,40 @@ export default function CertificateDigital({ certCode, mkLabel, peopleCount, exp
     ctx.fillText(instagram, 55, 928)
   }
 
-  const download = () => {
+  const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob | null> =>
+    new Promise((res) => canvas.toBlob((b) => res(b), 'image/png'))
+
+  const download = async () => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const fileName = `сертифікат-${certCode}.png`
+    const blob = await canvasToBlob(canvas)
+    if (!blob) return
+
+    // На телефоні — рідне меню «Поділитися/Зберегти у Фото»
+    const nav = navigator as Navigator & {
+      canShare?: (d: { files: File[] }) => boolean
+      share?: (d: { files: File[]; title?: string }) => Promise<void>
+    }
+    const file = new File([blob], fileName, { type: 'image/png' })
+    if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+      try {
+        await nav.share({ files: [file], title: 'Подарунковий сертифікат' })
+        return
+      } catch (e) {
+        // Користувач закрив меню — нічого не робимо
+        if ((e as Error).name === 'AbortError') return
+        // Інша помилка — переходимо до звичайного завантаження нижче
+      }
+    }
+
+    // Десктоп / браузери без Web Share — звичайне завантаження
+    const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.download = `сертифікат-${certCode}.jpg`
-    a.href = canvas.toDataURL('image/jpeg', 0.93)
+    a.download = fileName
+    a.href = url
     a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -168,7 +195,7 @@ export default function CertificateDigital({ certCode, mkLabel, peopleCount, exp
       <canvas ref={canvasRef} width={W} height={H} className={styles.canvas} />
       {ready && (
         <button onClick={download} className={styles.downloadBtn}>
-          ⬇ Завантажити сертифікат
+          ⬇ Зберегти сертифікат
         </button>
       )}
     </div>
