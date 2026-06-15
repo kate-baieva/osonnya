@@ -3,8 +3,16 @@ import { z } from 'zod'
 import { createInvoice, encodeOrderData } from '@/lib/wayforpay'
 import { createCertificateRecord, findOrCreateClient, getAllMkPrices, getNextCertNumber } from '@/lib/google-sheets'
 import { resolveCertificatePrice } from '@/lib/pricing'
-import { sendPaperCertNotification } from '@/lib/mailer'
+import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
+import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
+
+// Термін дії сертифіката — 3 місяці від сьогодні
+function certExpiry(): Date {
+  const d = new Date()
+  d.setMonth(d.getMonth() + 3)
+  return d
+}
 
 const bodySchema = z.object({
   studio:      z.string().min(1),
@@ -69,6 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Помилка генерації номера. Спробуйте ще раз.' }, { status: 500 })
   }
   const baseUrl  = process.env.NEXT_PUBLIC_BASE_URL!
+  const isGroup  = mkLabel.toLowerCase().includes('груповий')
 
   // ── Тест-режим (тільки localhost) ──────────────────────────────────────────
   if (skipPayment && process.env.NODE_ENV === 'development') {
@@ -84,12 +93,24 @@ export async function POST(req: NextRequest) {
         certCode,
       }, spreadsheetId)
       console.log(`[buy-certificate] ✅ TEST сертифікат створено: ${certCode}`)
-      // Email-сповіщення для паперового сертифіката
+
+      // Паперовий — сповіщення; Електронний — картинка вкладенням
       if (certType === 'paper') {
         sendPaperCertNotification({
           certCode, mkType: mkLabel, peopleCount, price,
           buyerName: clientFullName, buyerPhone: phone, buyerInstagram: instagram,
           studioName: studio.name,
+        }).catch((e) => console.warn('[buy-certificate] email не надіслано:', e))
+      } else {
+        const imageBuffer = await renderCertificateImage({
+          certCode, peopleCount, isGroup,
+          expiresAt: certExpiry(),
+          instagram: studio.instagramHandle,
+        })
+        sendDigitalCertEmail({
+          certCode, mkType: mkLabel, peopleCount, price,
+          buyerName: clientFullName, buyerPhone: phone, buyerInstagram: instagram,
+          studioName: studio.name, city: studio.city, imageBuffer,
         }).catch((e) => console.warn('[buy-certificate] email не надіслано:', e))
       }
     } catch (err) {
@@ -103,9 +124,8 @@ export async function POST(req: NextRequest) {
     n: name, s: surname, p: phone, i: instagram,
     c: peopleCount,
     d: new Date().toISOString().slice(0, 10),
-    st: 'booked',
     studio: studioId,
-    tp: 'cp' as 'cert-purchase',
+    tp: isGroup ? 'cpg' : 'cp',
     amt: price,
     cc: certCode,
     ct: certType === 'paper' ? 'p' : 'd',

@@ -12,7 +12,8 @@ import {
   findOrderRowByReference,
   createCertificateRecord,
 } from '@/lib/google-sheets'
-import { sendPaperCertNotification } from '@/lib/mailer'
+import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
+import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio } from '@/lib/studios'
 import { getSpreadsheetId } from '@/lib/studios'
 
@@ -55,43 +56,59 @@ export async function POST(req: NextRequest) {
         )
 
         // ── Покупка сертифіката ──────────────────────────────────────────
-        // tp може бути 'cert-purchase' (старий формат) або 'cp' (скорочений)
-        if (orderData.tp === 'cert-purchase' || (orderData.tp as string) === 'cp') {
+        // tp: 'cert-purchase' (старий), 'cp' (звичайний), 'cpg' (груповий)
+        const tp = orderData.tp as string
+        if (tp === 'cert-purchase' || tp === 'cp' || tp === 'cpg') {
           // certCode зберігається як 'cc' (нові замовлення) або 'certCode' (старий формат)
           const certCode = orderData.cc ?? (orderData as unknown as Record<string, string>).certCode
           if (!certCode) {
             console.error('[webhook/wayforpay] ❌ cert-purchase без certCode/cc')
           } else {
-            // mkType реконструюємо з кількості учасників
-            const mkType = orderData.c === 1 ? 'group'
-              : orderData.c === 2 ? 'pair'
-              : 'individual'
+            // Формат: tp='cpg' → груповий; інакше 2 особи → парний; решта → індивідуальний
+            const isGroup = tp === 'cpg'
+            const mkType = isGroup ? 'group' : orderData.c === 2 ? 'pair' : 'individual'
+            const mkTypeLabel = isGroup ? `Груповий МК (${orderData.c} учасн.)`
+              : mkType === 'pair' ? 'Парний МК'
+              : `Індивідуальний МК (${orderData.c} учасн.)`
+            const certPrice = orderData.amt ?? paidAmount
+
             await createCertificateRecord({
               buyerName: clientFullName,
               buyerPhone: orderData.p,
               buyerInstagram: orderData.i ?? '',
               peopleCount: orderData.c,
               mkType,
-              price: orderData.amt ?? paidAmount,
+              price: certPrice,
               certCode,
             }, spreadsheetId)
             console.log(`[webhook/wayforpay] ✅ сертифікат створено: ${certCode}`)
 
-            // Email-сповіщення для паперового сертифіката
+            const studio = getStudio(studioId)
+            const common = {
+              certCode, mkType: mkTypeLabel, peopleCount: orderData.c, price: certPrice,
+              buyerName: clientFullName, buyerPhone: orderData.p, buyerInstagram: orderData.i ?? '',
+              studioName: studio?.name ?? studioId,
+            }
+
             if (orderData.ct === 'p') {
-              const studio = getStudio(studioId)
-              sendPaperCertNotification({
-                certCode,
-                mkType: mkType === 'group' ? 'Груповий МК'
-                  : mkType === 'pair' ? 'Парний МК'
-                  : `Індивідуальний МК (${orderData.c} учасн.)`,
-                peopleCount: orderData.c,
-                price: orderData.amt ?? paidAmount,
-                buyerName: clientFullName,
-                buyerPhone: orderData.p,
-                buyerInstagram: orderData.i ?? '',
-                studioName: studio?.name ?? studioId,
-              }).catch((e) => console.warn('[webhook] email не надіслано:', e))
+              // Паперовий — текстове сповіщення
+              sendPaperCertNotification(common)
+                .catch((e) => console.warn('[webhook] paper email не надіслано:', e))
+            } else if (orderData.ct === 'd') {
+              // Електронний — генеруємо картинку й надсилаємо вкладенням
+              try {
+                const expiresAt = new Date()
+                expiresAt.setMonth(expiresAt.getMonth() + 3)
+                const imageBuffer = await renderCertificateImage({
+                  certCode, peopleCount: orderData.c, isGroup, expiresAt,
+                  instagram: studio?.instagramHandle ?? '@osonnya.ceramics',
+                })
+                await sendDigitalCertEmail({
+                  ...common, city: studio?.city ?? studioId, imageBuffer,
+                })
+              } catch (e) {
+                console.warn('[webhook] digital email не надіслано:', e)
+              }
             }
           }
           return NextResponse.json(buildWebhookResponse(orderReference))

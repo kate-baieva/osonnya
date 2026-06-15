@@ -111,11 +111,12 @@ export interface PendingOrderData {
   i: string      // instagram (обрізається до 20 символів)
   c: number      // peopleCount
   d: string      // mkDatetime / purchase date
-  st: string     // status: 'booked' | 'cert+payment'
+  st?: string    // status: 'booked' | 'cert+payment' (опц.; для сертифікатів не потрібен)
   studio: string // studio id: 'sumy' | 'if'
   cert?: string  // certificateCode (cert+payment)
   cri?: number   // certRowIndex (cert+payment)
-  tp?: 'individual' | 'cert-purchase'
+  // tp: 'cp' = сертифікат, 'cpg' = сертифікат на груповий МК, 'individual' = індивід. МК
+  tp?: 'individual' | 'cert-purchase' | 'cp' | 'cpg'
   amt?: number   // totalPrice
   cc?: string    // certCode для cert-purchase
   ct?: 'p' | 'd' // certType: 'p'=paper, 'd'=digital (тільки cert-purchase)
