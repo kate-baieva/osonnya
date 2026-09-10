@@ -1,4 +1,5 @@
 import { google } from 'googleapis'
+import crypto from 'crypto'
 import { config } from './config'
 import type { Slot } from '@/types'
 
@@ -204,10 +205,14 @@ export async function findOrCreateClient(
   phone: string,
   instagram?: string,
   spreadsheetId?: string,
+  email?: string,
+  newsletter?: boolean,
 ): Promise<string> {
   const sid = spreadsheetId ?? config.spreadsheetId
   const sheets = getSheets()
   const startRow = config.dataRows.clients
+  // F = Email, G = Розсилка (E = Full Name [auto] — не чіпаємо)
+  const newsVal = newsletter ? 'так' : ''
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sid,
@@ -219,13 +224,24 @@ export async function findOrCreateClient(
   const wantPhone   = normPhone(phone)
 
   const rows = (res.data.values ?? []) as string[][]
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
     const existingName    = normName(row[0] ?? '')
     const existingSurname = normName(row[1] ?? '')
     const existingPhone   = normPhone(row[2] ?? '')
 
     // Повний збіг усіх трьох полів — використовуємо наявний запис
     if (existingName === wantName && existingSurname === wantSurname && existingPhone === wantPhone) {
+      // Оновлюємо email / розсилку, якщо email передано
+      if (email) {
+        const rowIndex = startRow + i
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: sid,
+          range: `${config.sheets.clients}!F${rowIndex}:G${rowIndex}`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [[email, newsVal]] },
+        }).catch(() => {})
+      }
       return `${(row[0] ?? '').trim()} ${(row[1] ?? '').trim()}`.trim()
     }
   }
@@ -237,8 +253,77 @@ export async function findOrCreateClient(
     valueInputOption: 'RAW',
     requestBody: { values: [[name, surname, phone, instagram ?? '']] },
   })
+  // Email + розсилка окремо (щоб не зачепити колонку E з автоформулою)
+  if (email) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sid,
+      range: `${config.sheets.clients}!F${nextRow}:G${nextRow}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [[email, newsVal]] },
+    }).catch(() => {})
+  }
 
   return `${name} ${surname}`.trim()
+}
+
+// ─── Pending Orders (тимчасове сховище до підтвердження оплати) ───────────────
+// Повні дані замовлення зберігаємо в окремому аркуші, а в orderReference кладемо
+// лише короткий id. Так імена/email будь-якої довжини не ламають ліміт WayForPay.
+
+const ensuredPendingSheets = new Set<string>()
+
+async function ensurePendingSheet(spreadsheetId: string): Promise<void> {
+  if (ensuredPendingSheets.has(spreadsheetId)) return
+  const sheets = getSheets()
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(title))',
+  })
+  const exists = meta.data.sheets?.some((s) => s.properties?.title === config.sheets.pending)
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: [{ addSheet: { properties: { title: config.sheets.pending } } }] },
+    })
+  }
+  ensuredPendingSheets.add(spreadsheetId)
+}
+
+export async function savePendingOrder(
+  payload: Record<string, unknown>,
+  spreadsheetId?: string,
+): Promise<string> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  await ensurePendingSheet(sid)
+  const sheets = getSheets()
+  const id = crypto.randomBytes(8).toString('hex') // 16 hex символів
+  const nextRow = await findNextRow(config.sheets.pending, 1, sid)
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.pending}!A${nextRow}:C${nextRow}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[id, JSON.stringify(payload), formatDateSheet(new Date())]] },
+  })
+  return id
+}
+
+export async function readPendingOrder(
+  id: string,
+  spreadsheetId?: string,
+): Promise<Record<string, unknown> | null> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sid,
+    range: `${config.sheets.pending}!A1:B`,
+  })
+  const rows = (res.data.values ?? []) as string[][]
+  for (const r of rows) {
+    if ((r[0] ?? '').trim() === id) {
+      try { return JSON.parse(r[1] ?? '{}') } catch { return null }
+    }
+  }
+  return null
 }
 
 // ─── Orders ──────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ export const config = {
     clients: process.env.SHEET_CLIENTS ?? 'Clients',
     orders: process.env.SHEET_ORDERS ?? 'MK Orders',
     certificates: process.env.SHEET_CERTIFICATES ?? 'Certificate Orders',
+    pending: process.env.SHEET_PENDING ?? 'Pending Orders',
   },
   // Рядки, з яких починаються дані (заголовки вище)
   dataRows: {

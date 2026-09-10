@@ -152,6 +152,21 @@ export function encodeOrderData(data: PendingOrderData): string {
   return ref
 }
 
+// ─── Короткий orderReference з id на аркуш Pending Orders ─────────────────────
+// Формат: osnp.<studio>.<id>. Повні дані замовлення зберігаються в таблиці,
+// тож orderReference лишається коротким (імена/email будь-якої довжини).
+
+export function encodePendingRef(studio: string, id: string): string {
+  return `osnp.${studio}.${id}`
+}
+
+export function decodePendingRef(orderReference: string): { studio: string; id: string } | null {
+  if (!orderReference.startsWith('osnp.')) return null
+  const parts = orderReference.split('.')
+  if (parts.length !== 3 || !parts[1] || !parts[2]) return null
+  return { studio: parts[1], id: parts[2] }
+}
+
 export function decodeOrderData(orderReference: string): PendingOrderData | null {
   const prefix = 'osonnya_'
   if (!orderReference.startsWith(prefix)) return null

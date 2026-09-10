@@ -63,8 +63,8 @@ export default function BookingPage({ studioId }: Props) {
           <>
             <h1 className={styles.heading}>
               {visibleSlots[0]?.title
-                ? `Запис на «${visibleSlots[0].title}»`
-                : 'Запис на майстер-клас'}
+                ? `Запис на «${visibleSlots[0].title}» в ${studio.cityLocative}`
+                : `Запис на майстер-клас в ${studio.cityLocative}`}
             </h1>
             {visibleSlots[0] && (
               <p className={styles.subtitle}>
@@ -86,7 +86,7 @@ export default function BookingPage({ studioId }: Props) {
           </>
         ) : (
           <>
-            <h1 className={styles.heading}>Запис на майстер-клас із ліплення з глини</h1>
+            <h1 className={styles.heading}>Запис на майстер-клас із ліплення з глини в {studio.cityLocative}</h1>
             <p className={styles.subtitle}>
               Раді вітати вас в Осонні! Оберіть зручний день та час майстер-класу.
               Після заповнення форми вас перенаправить на оплату.

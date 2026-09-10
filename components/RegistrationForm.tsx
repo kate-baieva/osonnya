@@ -3,9 +3,17 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { formSchema, type FormInput } from '@/lib/validation'
+import { z } from 'zod'
+import { formSchema } from '@/lib/validation'
 import type { Slot } from '@/types'
 import styles from './RegistrationForm.module.css'
+
+// Схема групової форми: базові поля + email та підписка на розсилку
+const groupFormSchema = formSchema.extend({
+  email: z.string().min(1, 'Введіть email').email('Введіть коректний email'),
+  newsletter: z.boolean().optional(),
+})
+type GroupFormInput = z.infer<typeof groupFormSchema>
 
 interface CertValidation {
   status: 'idle' | 'checking' | 'valid' | 'invalid'
@@ -42,9 +50,9 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
     formState: { errors },
     watch,
     reset,
-  } = useForm<FormInput>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { peopleCount: 1 },
+  } = useForm<GroupFormInput>({
+    resolver: zodResolver(groupFormSchema),
+    defaultValues: { peopleCount: 1, newsletter: false },
   })
 
   const peopleCount = watch('peopleCount') || 1
@@ -83,7 +91,7 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
     setServerError(null)
   }
 
-  const onSubmit = async (data: FormInput) => {
+  const onSubmit = async (data: GroupFormInput) => {
     if (!selectedSlot) return
 
     if (payMethod === 'certificate') {
@@ -177,6 +185,21 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
         />
         {errors.instagram && <span className={styles.error}>{errors.instagram.message}</span>}
       </div>
+
+      <div className={styles.field}>
+        <label htmlFor="email">Email</label>
+        <input
+          id="email" type="email" placeholder="example@email.com"
+          {...register('email')}
+          className={errors.email ? styles.inputError : ''}
+        />
+        {errors.email && <span className={styles.error}>{errors.email.message}</span>}
+      </div>
+
+      <label className={styles.checkboxRow}>
+        <input type="checkbox" {...register('newsletter')} />
+        <span>Хочу підписатись на розсилку оновлень та пропозицій від Осоння</span>
+      </label>
 
       <div className={styles.field}>
         <label htmlFor="peopleCount">Кількість людей</label>

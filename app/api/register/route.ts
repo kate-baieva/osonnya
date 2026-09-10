@@ -6,10 +6,11 @@ import {
   appendOrder,
   validateCertificate,
   redeemCertificate,
+  savePendingOrder,
 } from '@/lib/google-sheets'
 import {
   createInvoice,
-  encodeOrderData,
+  encodePendingRef,
 } from '@/lib/wayforpay'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
   const slotId        = raw?.slotId as string | undefined
   const studioId      = (raw?.studio as string ?? 'sumy')
   const certificateCode = ((raw?.certificateCode as string ?? '')).trim() || undefined
+  const email         = ((raw?.email as string ?? '')).trim()
+  const newsletter    = raw?.newsletter === true
   const parsed = formSchema.safeParse(body)
 
   if (!parsed.success || !slotId) {
@@ -32,6 +35,11 @@ export async function POST(req: NextRequest) {
       { error: 'Помилка валідації', fields: parsed.success ? {} : parsed.error.flatten().fieldErrors },
       { status: 400 }
     )
+  }
+
+  // Email обов'язковий і має бути валідним
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: 'Введіть коректний email' }, { status: 400 })
   }
 
   const studio = getStudio(studioId)
@@ -72,7 +80,7 @@ export async function POST(req: NextRequest) {
     // ── Тільки сертифікат — записуємо одразу ─────────────────────────────
     if (extraCount <= 0) {
       try {
-        const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId)
+        const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId, email, newsletter)
         await appendOrder({
           clientFullName,
           mkDatetime: slot.datetime,
@@ -90,21 +98,19 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Сертифікат + доплата — оплата спочатку ───────────────────────────
-    const orderReference = encodeOrderData({
-      n: name, s: surname, p: phone, i: instagram ?? '',
-      c: peopleCount, d: slot.datetime,
-      st: 'cert+payment',
-      studio: studioId,
-      cert: certificateCode,
-      cri: certResult.info.rowIndex,
-    })
-
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
       const extraAmount = extraCount * studio.pricePerPerson
+      const id = await savePendingOrder({
+        kind: 'group-cert',
+        studio: studioId,
+        name, surname, phone, instagram: instagram ?? '', email, newsletter,
+        peopleCount, mkDatetime: slot.datetime,
+        certificateCode, certRowIndex: certResult.info.rowIndex,
+      }, spreadsheetId)
       const description = `Сертифікат + ${extraCount} дод. учасн. · МК ${slot.date} о ${slot.time}`
       const { invoiceUrl } = await createInvoice({
-        orderReference,
+        orderReference: encodePendingRef(studioId, id),
         description,
         amount: extraAmount,
         returnUrl: `${baseUrl}/api/payment/return?studio=${studioId}`,
@@ -120,19 +126,18 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Оплата карткою — спочатку оплата, потім запис ───────────────────────
-  const orderReference = encodeOrderData({
-    n: name, s: surname, p: phone, i: instagram ?? '',
-    c: peopleCount, d: slot.datetime,
-    st: 'booked',
-    studio: studioId,
-  })
-
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
     const totalAmount = peopleCount * studio.pricePerPerson
+    const id = await savePendingOrder({
+      kind: 'group',
+      studio: studioId,
+      name, surname, phone, instagram: instagram ?? '', email, newsletter,
+      peopleCount, mkDatetime: slot.datetime,
+    }, spreadsheetId)
     const description = `Майстер-клас ${slot.date} о ${slot.time} · ${peopleCount} учасн.`
     const { invoiceUrl } = await createInvoice({
-      orderReference,
+      orderReference: encodePendingRef(studioId, id),
       description,
       amount: totalAmount,
       returnUrl: `${baseUrl}/api/payment/return?studio=${studioId}`,

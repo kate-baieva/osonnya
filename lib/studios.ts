@@ -2,6 +2,7 @@ export interface StudioInfo {
   id: string
   name: string
   city: string
+  cityLocative: string // місцевий відмінок: 'Сумах' / 'Івано-Франківську'
   address: string
   instagramHandle: string
   instagramHighlightsUrl: string
@@ -15,6 +16,7 @@ export const STUDIOS: Record<string, StudioInfo> = {
     id: 'sumy',
     name: 'Осоння Суми',
     city: 'Суми',
+    cityLocative: 'Сумах',
     address: 'проспект Свободи, 14',
     instagramHandle: '@osonnya.ceramics',
     instagramHighlightsUrl: 'https://www.instagram.com/stories/highlights/18321951592248393/',
@@ -26,6 +28,7 @@ export const STUDIOS: Record<string, StudioInfo> = {
     id: 'if',
     name: 'Осоння Івано-Франківськ',
     city: 'Івано-Франківськ',
+    cityLocative: 'Івано-Франківську',
     address: 'вулиця Національної гвардії, 14Ю (ЖК "Паркове містечко")',
     instagramHandle: '@osonnya.ceramics.if',
     instagramHighlightsUrl: 'https://www.instagram.com/osonnya.ceramics.if/',

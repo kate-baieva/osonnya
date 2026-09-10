@@ -3,6 +3,7 @@ import {
   verifyWebhookSignature,
   buildWebhookResponse,
   decodeOrderData,
+  decodePendingRef,
 } from '@/lib/wayforpay'
 import {
   findOrCreateClient,
@@ -11,6 +12,7 @@ import {
   redeemCertificate,
   findOrderRowByReference,
   createCertificateRecord,
+  readPendingOrder,
 } from '@/lib/google-sheets'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
 import { renderCertificateImage } from '@/lib/certificate-image'
@@ -40,6 +42,41 @@ export async function POST(req: NextRequest) {
 
   if (transactionStatus === 'Approved') {
     try {
+      // ── Новий формат: короткий ref → дані з аркуша Pending Orders ──────
+      const pend = decodePendingRef(orderReference)
+      if (pend) {
+        const spreadsheetId = getSpreadsheetId(pend.studio)
+        const p = await readPendingOrder(pend.id, spreadsheetId)
+        if (!p) {
+          console.error(`[webhook/wayforpay] ⚠️ pending не знайдено: ${orderReference}`)
+          return NextResponse.json(buildWebhookResponse(orderReference))
+        }
+
+        const pricePerPerson = pend.studio === 'if' ? 700 : 650
+        const clientFullName = await findOrCreateClient(
+          p.name as string, p.surname as string, p.phone as string,
+          (p.instagram as string) || undefined, spreadsheetId,
+          (p.email as string) || undefined, p.newsletter === true,
+        )
+
+        const rowIndex = await appendOrder({
+          clientFullName,
+          mkDatetime: p.mkDatetime as string,
+          peopleCount: p.peopleCount as number,
+          orderReference,
+          status: p.kind === 'group-cert' ? 'certificate' : 'booked',
+          pricePerPerson,
+        }, spreadsheetId)
+        await updateOrderPrepayment(rowIndex, paidAmount, spreadsheetId)
+        console.log(`[webhook/wayforpay] ✅ (pending) замовлення збережено: рядок ${rowIndex}`)
+
+        if (p.kind === 'group-cert' && p.certRowIndex) {
+          await redeemCertificate(p.certRowIndex as number, spreadsheetId)
+          console.log(`[webhook/wayforpay] ✅ сертифікат погашено: ${p.certificateCode}`)
+        }
+        return NextResponse.json(buildWebhookResponse(orderReference))
+      }
+
       const orderData = decodeOrderData(orderReference)
 
       if (orderData) {

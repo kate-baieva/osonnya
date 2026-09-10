@@ -232,6 +232,26 @@
   font-size: 0.9rem !important;
 }
 
+/* Чекбокс розсилки */
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #5a3e28;
+  line-height: 1.4;
+}
+
+.checkboxRow input {
+  width: 18px;
+  height: 18px;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+  accent-color: #9b6b3a;
+  cursor: pointer;
+}
+
 /* Підсумок «До сплати» */
 .paySummary {
   display: flex;
