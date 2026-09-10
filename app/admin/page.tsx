@@ -8,12 +8,13 @@ import styles from './admin.module.css'
 
 const STUDIOS_LIST: StudioInfo[] = [STUDIOS.sumy, STUDIOS.if]
 
-type MenuItem = 'group' | 'individual' | 'certificate'
+type MenuItem = 'group' | 'individual' | 'certificate' | 'promo'
 
 const MENU_ITEMS: { id: MenuItem; label: string }[] = [
   { id: 'group',       label: 'Груповий МК' },
   { id: 'individual',  label: 'Індивідуальний МК' },
   { id: 'certificate', label: 'Сертифікат' },
+  { id: 'promo',       label: 'Промокод' },
 ]
 
 // ─── helpers ────────────────────────────────────────────
@@ -415,6 +416,104 @@ function CertificateContent({ studio, origin }: { studio: StudioInfo; origin: st
   )
 }
 
+// ─── Промокод ────────────────────────────────────────────
+
+const PROMO_TYPES = [
+  { value: 'group',      label: 'Груповий МК' },
+  { value: 'individual', label: 'Індивідуальний МК' },
+  { value: 'any',        label: 'Будь-який МК' },
+]
+
+function PromoContent({ studio }: { studio: StudioInfo }) {
+  const [contact, setContact]   = useState('')
+  const [discount, setDiscount] = useState(10)
+  const [mkType, setMkType]     = useState('group')
+  const [creating, setCreating] = useState(false)
+  const [error, setError]       = useState('')
+  const [created, setCreated]   = useState<{ code: string; discount: number } | null>(null)
+
+  const generate = async () => {
+    if (!contact.trim()) { setError('Вкажіть контакт'); return }
+    if (discount <= 0 || discount > 100) { setError('Знижка має бути від 1 до 100%'); return }
+    setError(''); setCreating(true); setCreated(null)
+    try {
+      const res = await fetch('/api/create-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studio: studio.id, contact: contact.trim(), discountPercent: discount, mkType }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Помилка. Спробуйте ще раз.'); return }
+      setCreated({ code: json.code, discount: json.discountPercent })
+    } catch {
+      setError('Немає з\'єднання. Спробуйте ще раз.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <section className={styles.card}>
+      <h3 className={styles.cardTitle}>Створити промокод</h3>
+      <p className={styles.cardDesc}>Разова знижка. Термін дії — 3 місяці, заповнюється автоматично.</p>
+
+      <div className={styles.indivForm}>
+        <div className={styles.indivField}>
+          <label className={styles.indivLabel}>Контакт (кому видано)</label>
+          <input
+            type="text" className={styles.indivInput}
+            placeholder="Ім'я / Instagram / телефон"
+            value={contact}
+            onChange={(e) => { setContact(e.target.value); setCreated(null) }}
+          />
+        </div>
+
+        <div className={styles.indivRow}>
+          <div className={styles.indivField}>
+            <label className={styles.indivLabel}>Знижка, %</label>
+            <input
+              type="number" min={1} max={100}
+              className={`${styles.indivInput} ${styles.indivInputShort}`}
+              value={discount}
+              onChange={(e) => { setDiscount(Number(e.target.value)); setCreated(null) }}
+            />
+          </div>
+          <div className={styles.indivField}>
+            <label className={styles.indivLabel}>Діє на</label>
+            <select
+              className={styles.indivSelect}
+              value={mkType}
+              onChange={(e) => { setMkType(e.target.value); setCreated(null) }}
+            >
+              {PROMO_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {error && <p className={styles.empty} style={{ color: '#c00' }}>{error}</p>}
+
+        <button type="button" className={styles.generateBtn} disabled={creating} onClick={generate}>
+          {creating ? 'Створюємо…' : 'Створити промокод'}
+        </button>
+
+        {created && (
+          <div className={styles.generatedBlock}>
+            <p className={styles.generatedLabel}>
+              Промокод (знижка {created.discount}%) — надішліть клієнту:
+            </p>
+            <div className={styles.linkRow}>
+              <span className={styles.link} style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '0.05em' }}>
+                {created.code}
+              </span>
+              <CopyButton text={created.code} />
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ─── Заглушка ────────────────────────────────────────────
 
 function ComingSoon({ label }: { label: string }) {
@@ -449,6 +548,7 @@ function StudioTab({ studio, origin }: { studio: StudioInfo; origin: string }) {
         {activeMenu === 'group'       && <GroupContent studio={studio} origin={origin} />}
         {activeMenu === 'individual'  && <IndividualContent studio={studio} origin={origin} />}
         {activeMenu === 'certificate' && <CertificateContent studio={studio} origin={origin} />}
+        {activeMenu === 'promo'       && <PromoContent studio={studio} />}
       </div>
     </div>
   )

@@ -13,6 +13,7 @@ import {
   findOrderRowByReference,
   createCertificateRecord,
   readPendingOrder,
+  redeemPromo,
 } from '@/lib/google-sheets'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
 import { renderCertificateImage } from '@/lib/certificate-image'
@@ -73,6 +74,11 @@ export async function POST(req: NextRequest) {
         if (p.kind === 'group-cert' && p.certRowIndex) {
           await redeemCertificate(p.certRowIndex as number, spreadsheetId)
           console.log(`[webhook/wayforpay] ✅ сертифікат погашено: ${p.certificateCode}`)
+        }
+        // Погашаємо промокод, якщо був застосований
+        if (p.promoRowIndex) {
+          await redeemPromo(p.promoRowIndex as number, spreadsheetId)
+          console.log(`[webhook/wayforpay] ✅ промокод погашено: ${p.promoCode}`)
         }
         return NextResponse.json(buildWebhookResponse(orderReference))
       }

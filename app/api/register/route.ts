@@ -7,6 +7,7 @@ import {
   validateCertificate,
   redeemCertificate,
   savePendingOrder,
+  validatePromo,
 } from '@/lib/google-sheets'
 import {
   createInvoice,
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
   const slotId        = raw?.slotId as string | undefined
   const studioId      = (raw?.studio as string ?? 'sumy')
   const certificateCode = ((raw?.certificateCode as string ?? '')).trim() || undefined
+  const promoCode     = ((raw?.promoCode as string ?? '')).trim() || undefined
   const email         = ((raw?.email as string ?? '')).trim()
   const newsletter    = raw?.newsletter === true
   const parsed = formSchema.safeParse(body)
@@ -125,17 +127,39 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ─── Оплата карткою — спочатку оплата, потім запис ───────────────────────
+  // ─── Оплата карткою (з можливим промокодом) ──────────────────────────────
+  // Промокод: перевіряємо і рахуємо знижку на сервері (не довіряємо клієнту)
+  let discountPercent = 0
+  let promoRowIndex: number | undefined
+  if (promoCode) {
+    let promoResult: Awaited<ReturnType<typeof validatePromo>>
+    try {
+      promoResult = await validatePromo(promoCode, spreadsheetId, 'group')
+    } catch (err) {
+      console.error('[POST /api/register] ❌ validatePromo:', err)
+      return NextResponse.json({ error: 'Помилка перевірки промокоду. Спробуйте ще раз.' }, { status: 500 })
+    }
+    if (!promoResult.valid) {
+      return NextResponse.json({ error: promoResult.reason }, { status: 400 })
+    }
+    discountPercent = promoResult.info.discountPercent
+    promoRowIndex = promoResult.info.rowIndex
+  }
+
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!
-    const totalAmount = peopleCount * studio.pricePerPerson
+    const fullAmount = peopleCount * studio.pricePerPerson
+    const totalAmount = Math.round(fullAmount * (1 - discountPercent / 100))
     const id = await savePendingOrder({
       kind: 'group',
       studio: studioId,
       name, surname, phone, instagram: instagram ?? '', email, newsletter,
       peopleCount, mkDatetime: slot.datetime,
+      ...(promoRowIndex ? { promoCode, promoRowIndex, discountPercent } : {}),
     }, spreadsheetId)
-    const description = `Майстер-клас ${slot.date} о ${slot.time} · ${peopleCount} учасн.`
+    const description = discountPercent > 0
+      ? `Майстер-клас ${slot.date} о ${slot.time} · ${peopleCount} учасн. · знижка ${discountPercent}%`
+      : `Майстер-клас ${slot.date} о ${slot.time} · ${peopleCount} учасн.`
     const { invoiceUrl } = await createInvoice({
       orderReference: encodePendingRef(studioId, id),
       description,

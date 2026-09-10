@@ -659,3 +659,126 @@ export async function redeemCertificate(rowIndex: number, spreadsheetId?: string
     requestBody: { values: [['TRUE']] },
   })
 }
+
+// ─── Promo codes ──────────────────────────────────────────────────────────────
+// Аркуш «Promo codes»: A=Дата створення, B=Контакт, C=Знижка %, D=Термін дії[авто],
+// E=Тип МК, F=Промокод, G=Використаний, H=Завершився термін[авто].
+
+// Генерує складний для вгадування код: OS-XXXXXXXX (8 символів без неоднозначних)
+export function generatePromoCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = 'OS-'
+  for (let i = 0; i < 8; i++) code += chars[crypto.randomInt(chars.length)]
+  return code
+}
+
+// Записує новий промокод. Дати/термін/статуси рахуються формулами — не чіпаємо D,G,H.
+export async function createPromoRecord(
+  data: { contact: string; discountPercent: number; mkType: string; code: string },
+  spreadsheetId?: string,
+): Promise<void> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const now = formatDateSheet(new Date())
+  const nextRow = await findNextRow(config.sheets.promo, config.dataRows.promo, sid)
+  // A,B,C (пропускаємо D — автоформула)
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.promo}!A${nextRow}:C${nextRow}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[now, data.contact, data.discountPercent]] },
+  })
+  // E,F (пропускаємо G — чекбокс, H — автоформула)
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.promo}!E${nextRow}:F${nextRow}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[data.mkType, data.code]] },
+  })
+}
+
+export interface PromoInfo {
+  rowIndex: number
+  discountPercent: number
+  mkType: string
+}
+
+function serialToDate(serial: number): Date {
+  return new Date(Date.UTC(1899, 11, 30) + serial * 86400000)
+}
+
+export async function validatePromo(
+  code: string,
+  spreadsheetId?: string,
+  requiredMkType?: string,
+): Promise<{ valid: true; info: PromoInfo } | { valid: false; reason: string }> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  const startRow = config.dataRows.promo
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sid,
+    range: `${config.sheets.promo}!A${startRow}:H`,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  })
+
+  const rows = (res.data.values ?? []) as unknown[][]
+  const trimmed = code.trim().toUpperCase()
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const rowCode = String(row[5] ?? '').trim().toUpperCase() // F
+    if (rowCode !== trimmed) continue
+
+    // Використаний? (G)
+    const used = row[6]
+    if (used === true || String(used).toUpperCase() === 'TRUE') {
+      return { valid: false, reason: 'Цей промокод вже використано' }
+    }
+
+    // Термін дії (D — серійна дата)
+    const dueRaw = row[3]
+    if (typeof dueRaw === 'number') {
+      const due = serialToDate(dueRaw)
+      // дійсний до кінця дня
+      due.setUTCHours(23, 59, 59, 999)
+      if (due.getTime() < Date.now()) {
+        return { valid: false, reason: 'Термін дії промокоду закінчився' }
+      }
+    }
+
+    // Тип МК (E). 'any'/'будь-який'/'усі' — діє на всі типи
+    const rowType = String(row[4] ?? '').trim().toLowerCase()
+    const isWildcard = rowType === '' || rowType.includes('any') ||
+      rowType.includes('будь') || rowType.includes('усі') || rowType.includes('всі')
+    if (requiredMkType && !isWildcard && !rowType.includes(requiredMkType.toLowerCase())) {
+      return { valid: false, reason: 'Цей промокод не діє на цей тип майстер-класу' }
+    }
+
+    // Знижка (C): "10", "10%", 0.1 → 10
+    let disc = parseFloat(String(row[2] ?? '').replace('%', '').trim())
+    if (isNaN(disc) || disc <= 0) {
+      return { valid: false, reason: 'Некоректна знижка у промокоді' }
+    }
+    if (disc < 1) disc = disc * 100 // якщо збережено як частку (0.1)
+    if (disc > 100) disc = 100
+
+    return {
+      valid: true,
+      info: { rowIndex: startRow + i, discountPercent: disc, mkType: rowType },
+    }
+  }
+
+  return { valid: false, reason: 'Промокод не знайдено' }
+}
+
+export async function redeemPromo(rowIndex: number, spreadsheetId?: string): Promise<void> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const sheets = getSheets()
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.promo}!G${rowIndex}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [['TRUE']] },
+  })
+}

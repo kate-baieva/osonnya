@@ -43,6 +43,11 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
   const [payMethod, setPayMethod] = useState<'card' | 'certificate'>('card')
   const [certCode, setCertCode] = useState('')
   const [certVal, setCertVal] = useState<CertValidation>({ status: 'idle' })
+  // Промокод (лише для оплати карткою)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoStatus, setPromoStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
+  const [promoDiscount, setPromoDiscount] = useState(0)
+  const [promoError, setPromoError] = useState('')
 
   const {
     register,
@@ -84,11 +89,36 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
     }
   }
 
+  const checkPromo = async () => {
+    if (!promoCode.trim()) return
+    setPromoStatus('checking')
+    setPromoError('')
+    try {
+      const res = await fetch('/api/validate-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoCode.trim(), studio: studioId, mkType: 'group' }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) { setPromoStatus('invalid'); setPromoError(json.error ?? 'Помилка перевірки'); return }
+      if (!json.valid) { setPromoStatus('invalid'); setPromoError(json.reason); return }
+      setPromoStatus('valid')
+      setPromoDiscount(json.discountPercent)
+    } catch {
+      setPromoStatus('invalid')
+      setPromoError('Немає з\'єднання. Спробуйте ще раз.')
+    }
+  }
+
   const switchPayMethod = (method: 'card' | 'certificate') => {
     setPayMethod(method)
     setCertVal({ status: 'idle' })
     setCertCode('')
     setServerError(null)
+    // скидаємо промокод при переході на сертифікат
+    if (method === 'certificate') {
+      setPromoCode(''); setPromoStatus('idle'); setPromoDiscount(0); setPromoError('')
+    }
   }
 
   const onSubmit = async (data: GroupFormInput) => {
@@ -113,6 +143,7 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
     try {
       const body: Record<string, unknown> = { ...data, slotId: selectedSlot.id, studio: studioId }
       if (payMethod === 'certificate') body.certificateCode = certCode.trim()
+      if (payMethod === 'card' && promoStatus === 'valid') body.promoCode = promoCode.trim()
 
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -235,6 +266,37 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
         </div>
       </div>
 
+      {/* Промокод (лише для оплати карткою) */}
+      {payMethod === 'card' && (
+        <div className={styles.certBlock}>
+          <label htmlFor="promoCode" className={styles.certLabel}>Промокод (за наявності)</label>
+          <div className={styles.certRow}>
+            <input
+              id="promoCode" type="text" placeholder="Введіть промокод"
+              value={promoCode}
+              onChange={(e) => { setPromoCode(e.target.value); setPromoStatus('idle'); setPromoError(''); setPromoDiscount(0) }}
+              className={`${styles.certInput} ${
+                promoStatus === 'valid' ? styles.certInputValid :
+                promoStatus === 'invalid' ? styles.certInputInvalid : ''
+              }`}
+            />
+            <button
+              type="button" className={styles.certCheckBtn}
+              onClick={checkPromo}
+              disabled={!promoCode.trim() || promoStatus === 'checking'}
+            >
+              {promoStatus === 'checking' ? '…' : 'Застосувати'}
+            </button>
+          </div>
+          {promoStatus === 'valid' && (
+            <p className={styles.certValid}>✓ Промокод застосовано · знижка {promoDiscount}%</p>
+          )}
+          {promoStatus === 'invalid' && (
+            <p className={styles.certInvalid}>{promoError}</p>
+          )}
+        </div>
+      )}
+
       {/* Блок сертифікату */}
       {payMethod === 'certificate' && (
         <div className={styles.certBlock}>
@@ -288,17 +350,37 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
         <div className={styles.paySummary}>
           <span className={styles.paySummaryTitle}>До сплати</span>
 
-          {/* Оплата карткою — повна сума */}
-          {payMethod === 'card' && (
-            <div className={styles.payLine}>
-              <span className={styles.payLineText}>
-                {MK_NAME}, {peopleCount} {pluralUchasnyk(peopleCount)}
-              </span>
-              <span className={styles.payLineSum}>
-                {(peopleCount * pricePerPerson).toLocaleString('uk-UA')} грн
-              </span>
-            </div>
-          )}
+          {/* Оплата карткою — повна сума (зі знижкою, якщо є промокод) */}
+          {payMethod === 'card' && (() => {
+            const full = peopleCount * pricePerPerson
+            const discounted = promoStatus === 'valid'
+              ? Math.round(full * (1 - promoDiscount / 100))
+              : full
+            return (
+              <>
+                <div className={styles.payLine}>
+                  <span className={styles.payLineText}>
+                    {MK_NAME}, {peopleCount} {pluralUchasnyk(peopleCount)}
+                  </span>
+                  <span className={styles.payLineSum}>
+                    {full.toLocaleString('uk-UA')} грн
+                  </span>
+                </div>
+                {promoStatus === 'valid' && (
+                  <>
+                    <div className={styles.payLine}>
+                      <span className={styles.payLineText}>Знижка за промокодом ({promoDiscount}%)</span>
+                      <span className={styles.payLineSum}>−{(full - discounted).toLocaleString('uk-UA')} грн</span>
+                    </div>
+                    <div className={styles.payLine}>
+                      <span className={styles.payLineText}><strong>Разом до сплати</strong></span>
+                      <span className={styles.payLineSum}><strong>{discounted.toLocaleString('uk-UA')} грн</strong></span>
+                    </div>
+                  </>
+                )}
+              </>
+            )
+          })()}
 
           {/* Сертифікат покриває всіх */}
           {payMethod === 'certificate' && certVal.status === 'valid' && !isMixed && (
