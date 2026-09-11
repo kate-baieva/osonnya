@@ -338,8 +338,9 @@ export async function appendOrder(
     status?: string          // 'booked' (default) | 'certificate'
     certificateCode?: string
     pricePerPerson?: number  // 650 для Сум, 700 для ІФ (для групового МК)
-    totalAmount?: number     // явна сума (для індивідуального МК)
+    totalAmount?: number     // явна сума (з урахуванням знижки промокоду)
     mkType?: string          // 'group' (default) | 'individual'
+    promoCode?: string       // застосований промокод (колонка S)
   },
   spreadsheetId?: string,
 ): Promise<number> {
@@ -376,6 +377,16 @@ export async function appendOrder(
       ]],
     },
   })
+
+  // ── Промокод у колонку S (якщо застосований) ────────────────────────────
+  if (data.promoCode) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sid,
+      range: `${config.sheets.orders}!S${nextRow}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [[data.promoCode]] },
+    }).catch((e) => console.warn('[appendOrder] не вдалось записати промокод:', e))
+  }
 
   // ── Копіюємо data validation (спадні меню) з рядка вище ─────────────────
   try {
@@ -688,13 +699,35 @@ export async function createPromoRecord(
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[now, data.contact, data.discountPercent]] },
   })
-  // E,F (пропускаємо G — чекбокс, H — автоформула)
+  // E,F (пропускаємо H — автоформула)
   await sheets.spreadsheets.values.update({
     spreadsheetId: sid,
     range: `${config.sheets.promo}!E${nextRow}:F${nextRow}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[data.mkType, data.code]] },
   })
+  // G = чекбокс «Використаний» = FALSE (не використаний). Ставимо перевірку даних
+  // на цей рядок, щоб показувався чекбокс (у таблиці ІФ колонка вже типізована — ігноруємо помилку).
+  try {
+    const promoSheetId = await getSheetIdByName(config.sheets.promo, sid)
+    if (promoSheetId !== null) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sid,
+        requestBody: { requests: [{
+          setDataValidation: {
+            range: { sheetId: promoSheetId, startRowIndex: nextRow - 1, endRowIndex: nextRow, startColumnIndex: 6, endColumnIndex: 7 },
+            rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true },
+          },
+        }] },
+      })
+    }
+  } catch { /* ІФ — типізована колонка таблиці, чекбокс уже є */ }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `${config.sheets.promo}!G${nextRow}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[false]] },
+  }).catch(() => {})
 }
 
 export interface PromoInfo {

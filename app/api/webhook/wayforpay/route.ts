@@ -60,13 +60,17 @@ export async function POST(req: NextRequest) {
           (p.email as string) || undefined, p.newsletter === true,
         )
 
+        const isGroupCert = p.kind === 'group-cert'
         const rowIndex = await appendOrder({
           clientFullName,
           mkDatetime: p.mkDatetime as string,
           peopleCount: p.peopleCount as number,
           orderReference,
-          status: p.kind === 'group-cert' ? 'certificate' : 'booked',
-          pricePerPerson,
+          status: isGroupCert ? 'certificate' : 'booked',
+          // Груповий МК (карткою) — Amount = фактично сплачена сума (з урахуванням промокоду).
+          // Сертифікат+доплата — повна вартість МК.
+          ...(isGroupCert ? { pricePerPerson } : { totalAmount: paidAmount }),
+          ...(p.promoCode ? { promoCode: p.promoCode as string } : {}),
         }, spreadsheetId)
         await updateOrderPrepayment(rowIndex, paidAmount, spreadsheetId)
         console.log(`[webhook/wayforpay] ✅ (pending) замовлення збережено: рядок ${rowIndex}`)
