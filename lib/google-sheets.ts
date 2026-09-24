@@ -17,6 +17,8 @@ function getSheets() {
   return google.sheets({ version: 'v4', auth: getAuth() })
 }
 
+export { getSheets as getSheetsClient }
+
 // Повертає числовий sheetId (gid) для аркуша за назвою
 async function getSheetIdByName(sheetName: string, spreadsheetId: string): Promise<number | null> {
   const sheets = getSheets()

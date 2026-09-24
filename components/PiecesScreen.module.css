@@ -1,0 +1,315 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 6rem;
+}
+
+/* ─── Перемикач студії (лише адміністратор) ───────────── */
+
+.studioTabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.studioTab {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #e4d8cb;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b5844;
+  cursor: pointer;
+}
+
+.studioTabActive {
+  background: #9b6b3a;
+  border-color: #9b6b3a;
+  color: #fff;
+}
+
+/* ─── Фільтри ──────────────────────────────────────────── */
+
+.filters {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid #e4d8cb;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b5844;
+  cursor: pointer;
+}
+
+.filterActive {
+  background: #2d1f0f;
+  border-color: #2d1f0f;
+  color: #fff;
+}
+
+.filterCount {
+  opacity: 0.6;
+  margin-left: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.search {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #e4d8cb;
+  border-radius: 10px;
+  background: #fff;
+  color: #2d1f0f;
+  width: 100%;
+}
+
+.search:focus {
+  outline: 2px solid #9b6b3a;
+  outline-offset: -1px;
+}
+
+/* ─── Панель виділення ─────────────────────────────────── */
+
+.selectBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: #6b5844;
+}
+
+.linkBtn {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  color: #9b6b3a;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ─── Список ───────────────────────────────────────────── */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #fff;
+  border: 1px solid #f0e8df;
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
+}
+
+.rowSelected {
+  border-color: #9b6b3a;
+  background: #fdf8f3;
+}
+
+.checkbox {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  accent-color: #9b6b3a;
+  cursor: pointer;
+}
+
+.thumb {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f4ece3;
+}
+
+.thumbEmpty {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #f4ece3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c3ad96;
+  font-size: 1.1rem;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.number {
+  font-weight: 700;
+  color: #2d1f0f;
+  font-variant-numeric: tabular-nums;
+}
+
+.client {
+  font-size: 0.9rem;
+  color: #2d1f0f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 0.8rem;
+  color: #9b8878;
+}
+
+.comment {
+  font-size: 0.8rem;
+  color: #a1341f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #f4ece3;
+  color: #6b5844;
+  white-space: nowrap;
+}
+
+.badgeRaw     { background: #efe7dd; color: #6b5844; }
+.badgeBisque  { background: #e6ecdf; color: #4a6138; }
+.badgeGlazing { background: #e0e9ef; color: #3c5a6e; }
+.badgeReady   { background: #dfeee1; color: #2f6b3a; }
+.badgeGiven   { background: #f0ece8; color: #9b8878; }
+.badgeDefect  { background: #fbeae6; color: #a1341f; }
+
+.notified {
+  font-size: 0.7rem;
+  color: #9b8878;
+}
+
+/* ─── Стани ────────────────────────────────────────────── */
+
+.empty {
+  text-align: center;
+  color: #9b8878;
+  padding: 2.5rem 1rem;
+  font-size: 0.95rem;
+}
+
+.error {
+  background: #fbeae6;
+  color: #a1341f;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+/* ─── Нижня панель дій ─────────────────────────────────── */
+
+.actionBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  border-top: 1px solid #e4d8cb;
+  padding: 0.85rem 1.25rem calc(0.85rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px -16px rgba(45, 31, 15, 0.4);
+  z-index: 20;
+}
+
+.actionInner {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.actionRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.actionCount {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #2d1f0f;
+  white-space: nowrap;
+}
+
+.select {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #e4d8cb;
+  border-radius: 8px;
+  background: #fff;
+  color: #2d1f0f;
+  flex: 1;
+  min-width: 0;
+}
+
+.apply {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.6rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  background: #9b6b3a;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.apply:disabled {
+  background: #cbb9a6;
+  cursor: default;
+}
+
+.commentInput {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #e4d8cb;
+  border-radius: 8px;
+  background: #fff;
+  color: #2d1f0f;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .row { padding: 0.8rem 1rem; }
+  .thumb, .thumbEmpty { width: 52px; height: 52px; }
+}
