@@ -1,5 +1,6 @@
 import { getSheetsClient } from './google-sheets'
 import { getSpreadsheetId } from './studios'
+import { insertRowAfterData } from './sheet-rows'
 
 // Розклад зводиться з двох аркушів:
 //   «Group MKs»   — слоти, на які записує сайт
@@ -256,25 +257,18 @@ export async function addScheduleEntry(
   entry: NewScheduleEntry,
 ): Promise<void> {
   const spreadsheetId = getSpreadsheetId(studioId)
-  const sheets = getSheetsClient()
   const datetime = toSheetDatetime(entry.date, entry.time)
 
   if (entry.type === 'group') {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `'${GROUP_SHEET}'!A${GROUP_DATA_ROW}`,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [[datetime, entry.capacity, '', '', entry.title]] },
-    })
+    await insertRowAfterData(
+      spreadsheetId, GROUP_SHEET, GROUP_DATA_ROW, 'A',
+      [datetime, entry.capacity, '', '', entry.title],
+    )
   }
 
   const typeLabel = { group: 'Груповий', kids: 'Дитячий', indiv: 'Індивідуальний' }[entry.type]
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `'${RESERVED_SHEET}'!A${RESERVED_DATA_ROW}`,
-    valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
-    requestBody: { values: [[datetime, typeLabel, entry.title, '', '']] },
-  })
+  await insertRowAfterData(
+    spreadsheetId, RESERVED_SHEET, RESERVED_DATA_ROW, 'A',
+    [datetime, typeLabel, entry.title, '', ''],
+  )
 }

@@ -24,6 +24,7 @@ const bodySchema = z.object({
   surname:     z.string().min(2).max(50),
   phone:       z.string().min(1).regex(/^\+?3?8?0?\d{9}$|^0\d{9}$/, 'Некоректний телефон'),
   instagram:   z.string().min(1).max(100),
+  email:       z.string().email('Некоректний email').max(100),
   certType:    z.enum(['paper', 'digital']).default('paper'),
   skipPayment: z.boolean().optional(),
 })
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { studio: studioId, mkLabel, peopleCount,
-          name, surname, phone, instagram, certType, skipPayment } = parsed.data
+          name, surname, phone, instagram, email, certType, skipPayment } = parsed.data
 
   const studio = getStudio(studioId)
   if (!studio) return NextResponse.json({ error: 'Невідома студія' }, { status: 400 })
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
   // ── Тест-режим (тільки localhost) ──────────────────────────────────────────
   if (skipPayment && process.env.NODE_ENV === 'development') {
     try {
-      const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId)
+      const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId, email)
       await createCertificateRecord({
         buyerName: clientFullName,
         buyerPhone: phone,
@@ -118,6 +119,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
     }
     return NextResponse.json({ success: true, certCode, certType, mkLabel, peopleCount })
+  }
+
+  // Контакт зберігаємо до оплати — email не влазить у номер замовлення WayForPay
+  try {
+    await findOrCreateClient(name, surname, phone, instagram, spreadsheetId, email)
+  } catch (err) {
+    console.warn('[buy-certificate] не вдалось зберегти контакт:', err)
   }
 
   const orderReference = encodeOrderData({

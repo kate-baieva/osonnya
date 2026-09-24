@@ -1,5 +1,6 @@
 import { getSheetsClient } from './google-sheets'
 import { getSpreadsheetId } from './studios'
+import { insertRowAfterData } from './sheet-rows'
 import type { Piece, PieceStatus } from './piece-types'
 
 // Аркуш «Pieces»: заголовки в рядку 3, дані з рядка 4.
@@ -188,7 +189,6 @@ export interface NewPiece {
   photoUrl?: string
 }
 
-// Дозапис через append — рядок обирає сам Google, тож паралельні записи не затирають один одного.
 export async function addPieces(studioId: string, pieces: NewPiece[]): Promise<void> {
   if (pieces.length === 0) return
 
@@ -213,12 +213,8 @@ export async function addPieces(studioId: string, pieces: NewPiece[]): Promise<v
     return row
   })
 
-  const sheets = getSheetsClient()
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${SHEET}!A${DATA_ROW}`,
-    valueInputOption: 'RAW',
-    insertDataOption: 'INSERT_ROWS',
-    requestBody: { values },
-  })
+  // Той самий спосіб, що й у розкладі: append від Google кладе рядок у кінець аркуша
+  for (const row of values) {
+    await insertRowAfterData(spreadsheetId, SHEET, DATA_ROW, columnLetter(map.number ?? 0), row)
+  }
 }

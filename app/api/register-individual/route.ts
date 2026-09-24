@@ -16,6 +16,7 @@ import { z } from 'zod'
 const INDIVIDUAL_PREPAYMENT = 700
 
 const bodySchema = formSchema.extend({
+  email:           z.string().email('Некоректний email').max(100),
   studio:          z.string().min(1),
   date:            z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Некоректна дата'),
   time:            z.string().regex(/^\d{1,2}:\d{2}$/, 'Некоректний час'),
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { name, surname, phone, instagram, peopleCount,
+  const { name, surname, phone, instagram, email, peopleCount,
           studio: studioId, date, time, certificateCode,
           skipPayment } = parsed.data
 
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     // Сертифікат покриває все — записуємо одразу
     try {
-      const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId)
+      const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId, email)
       await appendOrder({
         clientFullName,
         mkDatetime,
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
   // ─── Тест-режим (тільки localhost / NODE_ENV=development) ────────────────
   if (skipPayment && process.env.NODE_ENV === 'development') {
     try {
-      const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId)
+      const clientFullName = await findOrCreateClient(name, surname, phone, instagram, spreadsheetId, email)
       const rowIndex = await appendOrder({
         clientFullName,
         mkDatetime,
@@ -131,6 +132,15 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Оплата карткою — 700 грн передоплата ─────────────────────────────────
+  // Контакт зберігаємо одразу: email не влазить у номер замовлення WayForPay
+  // (там ліміт 255 символів), а вебхук потім знайде цей самий запис за
+  // іменем, прізвищем і телефоном і не створить дубль.
+  try {
+    await findOrCreateClient(name, surname, phone, instagram, spreadsheetId, email)
+  } catch (err) {
+    console.warn('[register-individual] не вдалось зберегти контакт:', err)
+  }
+
   const orderReference = encodeOrderData({
     n: name, s: surname, p: phone, i: instagram ?? '',
     c: peopleCount,

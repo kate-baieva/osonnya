@@ -23,6 +23,7 @@ const formSchema = z.object({
   phone:     z.string().min(1, 'Введіть номер телефону')
                .regex(/^\+?3?8?0?\d{9}$|^0\d{9}$/, 'Введіть коректний номер (наприклад: 0501234567)'),
   instagram: z.string().min(1, 'Введіть нік або посилання на Instagram').max(100),
+  email:     z.string().min(1, 'Введіть email').email('Введіть коректний email').max(100),
 })
 type FormInput = z.infer<typeof formSchema>
 
@@ -188,6 +189,13 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
           <input id="instagram" type="text" placeholder="@username або посилання"
             {...register('instagram')} className={errors.instagram ? styles.inputError : ''} />
           {errors.instagram && <span className={styles.error}>{errors.instagram.message}</span>}
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="email">Email</label>
+          <input id="email" type="email" placeholder="example@email.com"
+            {...register('email')} className={errors.email ? styles.inputError : ''} />
+          {errors.email && <span className={styles.error}>{errors.email.message}</span>}
         </div>
 
         {/* Сума до сплати */}
