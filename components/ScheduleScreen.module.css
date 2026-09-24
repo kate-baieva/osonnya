@@ -1,0 +1,90 @@
+.list { display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  background: #fff;
+  border: 1px solid #f0e8df;
+  border-radius: 13px;
+  padding: 15px 17px;
+  box-shadow: 0 1px 2px rgba(45, 31, 15, 0.05), 0 10px 28px -18px rgba(45, 31, 15, 0.35);
+  display: grid;
+  grid-template-columns: 104px 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.when { display: flex; flex-direction: column; gap: 1px; }
+.day { font-weight: 800; font-size: 15px; color: #2d1f0f; }
+.time { color: #9b8878; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+
+.body { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.titleRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.name { font-weight: 700; color: #2d1f0f; }
+
+.tag { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.tagGroup { background: #f5ece2; color: #9b6b3a; }
+.tagIndiv { background: #e3ecf1; color: #3c5a6e; }
+.tagKids { background: #e4efe3; color: #4a7c4e; }
+
+.meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13.5px; color: #6b5844; }
+.reserved { color: #9b8878; }
+
+.seats { display: flex; align-items: center; gap: 7px; }
+.seatBar { width: 54px; height: 5px; border-radius: 3px; background: #f0e8df; overflow: hidden; }
+.seatFill { height: 100%; background: #9b6b3a; border-radius: 3px; }
+.seatFull { background: #a1341f; }
+.seatNum { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.masterPick { display: inline-flex; align-items: center; gap: 6px; }
+.masterLabel { color: #9b8878; }
+.masterSelect {
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid #e4d8cb;
+  background: #fdfaf6;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2d1f0f;
+  cursor: pointer;
+}
+.unassigned { border-color: #9c6a1e; color: #9c6a1e; background: #f6ead3; }
+
+.side { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+
+/* ─── Модалка ──────────────────────────────────────── */
+
+.modalWrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+.modalBack { position: absolute; inset: 0; background: rgba(20, 14, 8, 0.5); }
+.modalCard {
+  position: relative;
+  background: #fff;
+  border-radius: 15px;
+  padding: 22px;
+  width: 100%;
+  max-width: 430px;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5);
+}
+.modalHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.modalTitle { font-size: 17px; font-weight: 800; margin: 0; color: #2d1f0f; }
+.modalClose {
+  background: none; border: none; color: #9b8878;
+  font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.modalFoot { display: flex; gap: 9px; margin-top: 18px; }
+.modalFoot > * { flex: 1; text-align: center; }
+
+@media (max-width: 640px) {
+  .card { grid-template-columns: 1fr; gap: 11px; }
+  .side { align-items: stretch; flex-direction: row; }
+  .side > * { flex: 1; text-align: center; }
+}

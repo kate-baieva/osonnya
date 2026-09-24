@@ -1,0 +1,132 @@
+.app { display: flex; min-height: 100vh; }
+
+/* ─── Бічне меню ───────────────────────────────────── */
+
+.sidebar {
+  width: 238px;
+  flex: none;
+  background: #fff;
+  border-right: 1px solid #f0e8df;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 6px;
+}
+
+.logo { height: 28px; width: auto; }
+
+.whoami {
+  padding: 0 10px 16px;
+  font-size: 12px;
+  color: #9b8878;
+  line-height: 1.4;
+}
+
+.whoName { display: block; font-weight: 700; color: #2d1f0f; font-size: 13px; }
+
+.navGroup { display: flex; flex-direction: column; gap: 2px; }
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: #6b5844;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.navItem:hover { background: #fdfaf6; color: #2d1f0f; }
+
+.navItemActive { background: #f5ece2; color: #9b6b3a; font-weight: 700; }
+
+.navIcon { width: 17px; height: 17px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; }
+
+.navSpacer { flex: 1; min-height: 16px; }
+
+.navDivider { height: 1px; background: #f0e8df; margin: 10px; }
+
+.navItemDanger:hover { background: #fbeae6; color: #a1341f; }
+
+.logoutForm { display: contents; }
+
+.backdrop { display: none; }
+
+/* ─── Верхня смуга (моб) ───────────────────────────── */
+
+.topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  background: #fff;
+  border-bottom: 1px solid #f0e8df;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.burger {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid #e4d8cb;
+  border-radius: 9px;
+  color: #2d1f0f;
+  cursor: pointer;
+}
+
+.topbarTitle { font-weight: 700; font-size: 16px; color: #2d1f0f; }
+
+/* ─── Контент ──────────────────────────────────────── */
+
+.main { flex: 1; min-width: 0; }
+
+.content { max-width: 940px; margin: 0 auto; padding: 26px 28px 90px; }
+
+@media (max-width: 860px) {
+  .topbar { display: flex; }
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
+    height: 100dvh;
+  }
+  .navOpen .sidebar { transform: translateX(0); }
+  .navOpen .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(20, 14, 8, 0.45);
+  }
+  .content { padding: 18px 16px 80px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}

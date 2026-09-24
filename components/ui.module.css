@@ -1,0 +1,217 @@
+/* Спільні елементи інтерфейсу адмінки та кабінету майстрині. */
+
+.pageHead {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageHeadText { min-width: 0; }
+
+.title {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: #2d1f0f;
+  text-wrap: balance;
+}
+
+.sub { color: #9b8878; font-size: 14px; margin: 0; }
+
+.backLink {
+  background: none;
+  border: none;
+  color: #9b8878;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+}
+.backLink:hover { color: #9b6b3a; }
+
+/* ─── Кнопки ───────────────────────────────────────── */
+
+.btn {
+  padding: 7px 13px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  border: 1px solid #e4d8cb;
+  background: #fff;
+  color: #6b5844;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover:not(:disabled) { border-color: #9b6b3a; color: #9b6b3a; }
+.btn:disabled { opacity: 0.55; cursor: default; }
+
+.btnPrimary { background: #9b6b3a; border-color: #9b6b3a; color: #fff; }
+.btnPrimary:hover:not(:disabled) { background: #2d1f0f; border-color: #2d1f0f; color: #fff; }
+
+.btnGhost { background: none; border-color: transparent; color: #9b8878; }
+.btnSmall { padding: 5px 10px; font-size: 12.5px; }
+.btnWide { width: 100%; padding: 11px; font-size: 15px; text-align: center; }
+.btnFull { background: #fbeae6; border-color: transparent; color: #a1341f; cursor: default; }
+.btnFull:hover { border-color: transparent; color: #a1341f; }
+
+.rowActions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ─── Перемикачі ───────────────────────────────────── */
+
+.segmented {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  background: #fdfaf6;
+  border: 1px solid #f0e8df;
+  border-radius: 11px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.segment {
+  padding: 7px 15px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  color: #9b8878;
+  cursor: pointer;
+}
+.segmentActive { background: #9b6b3a; color: #fff; }
+
+.chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 18px; }
+
+.chip {
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid #e4d8cb;
+  background: #fff;
+  color: #6b5844;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chipActive { background: #2d1f0f; border-color: #2d1f0f; color: #faf6f1; }
+.chipCount { opacity: 0.55; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+/* ─── Картки й форми ───────────────────────────────── */
+
+.card {
+  background: #fff;
+  border: 1px solid #f0e8df;
+  border-radius: 13px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 2px rgba(45, 31, 15, 0.05), 0 10px 28px -18px rgba(45, 31, 15, 0.35);
+  margin-bottom: 16px;
+}
+
+.cardTitle { font-size: 16px; font-weight: 700; margin: 0 0 3px; color: #2d1f0f; }
+.cardDesc { color: #9b8878; font-size: 13.5px; margin: 0 0 16px; }
+
+.formGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fieldWide { grid-column: 1 / -1; }
+.label { font-size: 12.5px; font-weight: 700; color: #6b5844; }
+
+.input, .selectInput {
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid #e4d8cb;
+  background: #fdfaf6;
+  font-family: inherit;
+  font-size: 15px;
+  color: #2d1f0f;
+  width: 100%;
+}
+.input:focus, .selectInput:focus { outline: 2px solid #9b6b3a; outline-offset: -1px; }
+.inputLocked { background: #f0e8df; color: #6b5844; cursor: not-allowed; }
+.fieldNote { font-size: 11.5px; color: #9b8878; }
+
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepBtn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e4d8cb;
+  background: #fdfaf6;
+  font-size: 17px; font-weight: 700;
+  cursor: pointer; line-height: 1;
+  color: #2d1f0f;
+}
+.stepBtn:disabled { opacity: 0.4; cursor: default; }
+.stepVal { font-weight: 800; font-size: 17px; min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+
+.summary {
+  display: flex; align-items: baseline; justify-content: space-between;
+  background: #fdfaf6; border: 1px solid #f0e8df;
+  border-radius: 10px; padding: 12px 15px; margin: 15px 0;
+}
+.summaryLabel { font-size: 13px; color: #9b8878; font-weight: 600; }
+.summaryValue { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: #2d1f0f; }
+
+.resultBox { margin-top: 15px; background: #f5ece2; border-radius: 10px; padding: 13px 15px; }
+.resultLabel { font-size: 12.5px; color: #6b5844; margin: 0 0 8px; font-weight: 600; }
+.linkRow { display: flex; gap: 9px; align-items: center; }
+.linkText {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px; background: #fff;
+  border: 1px solid #e4d8cb; border-radius: 8px; padding: 8px 10px;
+}
+.codeText { font-weight: 800; letter-spacing: 0.06em; font-size: 16px; }
+
+/* ─── Таблиці ──────────────────────────────────────── */
+
+.tableWrap { overflow-x: auto; border: 1px solid #f0e8df; border-radius: 12px; background: #fff; }
+.table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 560px; }
+.table th {
+  text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: #9b8878; font-weight: 700; padding: 11px 14px;
+  border-bottom: 1px solid #f0e8df; white-space: nowrap;
+}
+.table td { padding: 11px 14px; border-bottom: 1px solid #f0e8df; color: #2d1f0f; }
+.table tr:last-child td { border-bottom: none; }
+.num { font-variant-numeric: tabular-nums; }
+
+.pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.pillOk { background: #e4efe3; color: #4a7c4e; }
+.pillMuted { background: #f0e8df; color: #9b8878; }
+.pillWarn { background: #f6ead3; color: #9c6a1e; }
+.pillCrit { background: #fbeae6; color: #a1341f; }
+.pillInfo { background: #e3ecf1; color: #3c5a6e; }
+.pillAccent { background: #f5ece2; color: #9b6b3a; }
+
+/* ─── Стани ────────────────────────────────────────── */
+
+.hint {
+  background: #fdfaf6; border: 1px dashed #e4d8cb; border-radius: 11px;
+  padding: 13px 15px; color: #9b8878; font-size: 13.5px; margin-top: 16px;
+}
+.hint b { color: #6b5844; display: block; margin-bottom: 2px; }
+
+.empty { text-align: center; color: #9b8878; padding: 34px 16px; font-size: 14px; }
+
+.error {
+  background: #fbeae6; color: #a1341f; border-radius: 10px;
+  padding: 10px 13px; font-size: 13.5px; margin-bottom: 14px;
+}
+
+@media (max-width: 640px) {
+  .title { font-size: 22px; }
+  .formGrid { grid-template-columns: 1fr; }
+}
