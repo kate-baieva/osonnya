@@ -502,3 +502,32 @@
     padding: 0.55rem 0.5rem;
   }
 }
+
+/* ─── Верхня смуга: кабінет майстрині + вихід ──────────── */
+
+.topBar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.topLink {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #e4d8cb;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b5844;
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.topLink:hover {
+  border-color: #9b6b3a;
+  color: #9b6b3a;
+}

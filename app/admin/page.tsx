@@ -8,13 +8,14 @@ import styles from './admin.module.css'
 
 const STUDIOS_LIST: StudioInfo[] = [STUDIOS.sumy, STUDIOS.if]
 
-type MenuItem = 'group' | 'individual' | 'certificate' | 'promo'
+type MenuItem = 'group' | 'individual' | 'certificate' | 'promo' | 'users'
 
 const MENU_ITEMS: { id: MenuItem; label: string }[] = [
   { id: 'group',       label: 'Груповий МК' },
   { id: 'individual',  label: 'Індивідуальний МК' },
   { id: 'certificate', label: 'Сертифікат' },
   { id: 'promo',       label: 'Промокод' },
+  { id: 'users',       label: 'Майстрині' },
 ]
 
 // ─── helpers ────────────────────────────────────────────
@@ -514,6 +515,187 @@ function PromoContent({ studio }: { studio: StudioInfo }) {
   )
 }
 
+// ─── Майстрині ───────────────────────────────────────────
+
+interface AdminUser {
+  rowIndex: number
+  name: string
+  login: string
+  role: 'admin' | 'master'
+  studio: string | null
+  active: boolean
+}
+
+function UsersContent({ studio }: { studio: StudioInfo }) {
+  const [users, setUsers]     = useState<AdminUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const [name, setName]       = useState('')
+  const [login, setLogin]     = useState('')
+  const [userStudio, setUserStudio] = useState(studio.id)
+  const [creating, setCreating] = useState(false)
+  const [error, setError]     = useState('')
+  const [created, setCreated] = useState<{ login: string; password: string } | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/users')
+      const json = await res.json()
+      if (Array.isArray(json)) setUsers(json)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+  useEffect(() => { setUserStudio(studio.id) }, [studio.id])
+
+  const create = async () => {
+    setError(''); setCreated(null); setCreating(true)
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, login, role: 'master', studio: userStudio }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Не вдалося створити'); return }
+      setCreated({ login: json.login, password: json.password })
+      setName(''); setLogin('')
+      await load()
+    } catch {
+      setError('Немає з\'єднання. Спробуйте ще раз.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const resetPassword = async (user: AdminUser) => {
+    setError(''); setCreated(null)
+    const res = await fetch('/api/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rowIndex: user.rowIndex, action: 'reset-password' }),
+    })
+    const json = await res.json()
+    if (!res.ok) { setError(json.error ?? 'Не вдалося змінити пароль'); return }
+    setCreated({ login: user.login, password: json.password })
+  }
+
+  const toggleActive = async (user: AdminUser) => {
+    setError('')
+    const res = await fetch('/api/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rowIndex: user.rowIndex,
+        action: user.active ? 'deactivate' : 'activate',
+      }),
+    })
+    if (!res.ok) { setError('Не вдалося змінити доступ'); return }
+    await load()
+  }
+
+  return (
+    <>
+      <section className={styles.card}>
+        <h3 className={styles.cardTitle}>Додати майстриню</h3>
+        <p className={styles.cardDesc}>
+          Пароль згенерується автоматично — покажемо його один раз, передайте його майстрині
+        </p>
+
+        <div className={styles.indivForm}>
+          <div className={styles.indivRow}>
+            <div className={styles.indivField}>
+              <label className={styles.indivLabel}>Ім&apos;я</label>
+              <input
+                className={styles.indivInput}
+                placeholder="Анна"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setCreated(null) }}
+              />
+            </div>
+            <div className={styles.indivField}>
+              <label className={styles.indivLabel}>Логін</label>
+              <input
+                className={styles.indivInput}
+                placeholder="anna"
+                autoCapitalize="none"
+                value={login}
+                onChange={(e) => { setLogin(e.target.value); setCreated(null) }}
+              />
+            </div>
+          </div>
+
+          <div className={styles.indivField}>
+            <label className={styles.indivLabel}>Студія</label>
+            <select
+              className={styles.indivSelect}
+              value={userStudio}
+              onChange={(e) => setUserStudio(e.target.value)}
+            >
+              {STUDIOS_LIST.map((s) => <option key={s.id} value={s.id}>{s.city}</option>)}
+            </select>
+          </div>
+
+          {error && <p className={styles.empty} style={{ color: '#c00' }}>{error}</p>}
+
+          <button className={styles.generateBtn} disabled={creating} onClick={create}>
+            {creating ? 'Створюємо…' : 'Створити доступ'}
+          </button>
+
+          {created && (
+            <div className={styles.generatedBlock}>
+              <p className={styles.generatedLabel}>
+                Логін <b>{created.login}</b> — пароль показується лише зараз:
+              </p>
+              <div className={styles.linkRow}>
+                <span className={styles.link} style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '0.05em' }}>
+                  {created.password}
+                </span>
+                <CopyButton text={created.password} />
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className={styles.card}>
+        <h3 className={styles.cardTitle}>Хто має доступ</h3>
+        {loading && <p className={styles.empty}>Завантаження…</p>}
+        {!loading && users.length === 0 && (
+          <p className={styles.empty}>Поки нікого. Ви заходите через обліковий запис із налаштувань сервера.</p>
+        )}
+
+        <div className={styles.slotList}>
+          {users.map((user) => (
+            <div key={user.rowIndex} className={styles.slotRow}>
+              <div className={styles.slotInfo}>
+                <span className={styles.slotTitle}>{user.name || user.login}</span>
+                <span className={styles.slotDate}>{user.login}</span>
+                <span className={styles.slotTime}>
+                  {user.role === 'admin'
+                    ? 'адміністратор'
+                    : STUDIOS_LIST.find((s) => s.id === user.studio)?.city ?? 'без студії'}
+                </span>
+                {!user.active && <span className={styles.slotSpots}>доступ вимкнено</span>}
+              </div>
+              <div className={styles.linkRow}>
+                <button className={styles.copyBtn} onClick={() => resetPassword(user)}>
+                  Новий пароль
+                </button>
+                <button className={styles.copyBtn} onClick={() => toggleActive(user)}>
+                  {user.active ? 'Вимкнути' : 'Увімкнути'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  )
+}
+
 // ─── Заглушка ────────────────────────────────────────────
 
 function ComingSoon({ label }: { label: string }) {
@@ -549,6 +731,7 @@ function StudioTab({ studio, origin }: { studio: StudioInfo; origin: string }) {
         {activeMenu === 'individual'  && <IndividualContent studio={studio} origin={origin} />}
         {activeMenu === 'certificate' && <CertificateContent studio={studio} origin={origin} />}
         {activeMenu === 'promo'       && <PromoContent studio={studio} />}
+        {activeMenu === 'users'       && <UsersContent studio={studio} />}
       </div>
     </div>
   )
@@ -568,6 +751,13 @@ export default function AdminPage() {
 
   return (
     <main className={styles.main}>
+      <div className={styles.topBar}>
+        <a href="/master" className={styles.topLink}>Кабінет майстрині</a>
+        <form action="/api/auth/logout" method="post">
+          <button type="submit" className={styles.topLink}>Вийти</button>
+        </form>
+      </div>
+
       <img src="/logo.svg" alt="Osonnya" className={styles.logo} />
       <h1 className={styles.title}>Адмін панель</h1>
 

@@ -7,15 +7,18 @@ export async function GET(request: Request) {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Потрібен вхід' }, { status: 401 })
 
-  const requested = new URL(request.url).searchParams.get('studio') ?? ''
   // Майстриня бачить лише свою студію, адміністратор — будь-яку.
-  const studioId = session.role === 'admin' ? requested : session.studio ?? requested
+  // Якщо студію не призначено — доступу немає взагалі, а не «до будь-якої».
+  if (session.role !== 'admin' && !session.studio) {
+    return NextResponse.json({ error: 'Студію не призначено' }, { status: 403 })
+  }
+
+  const studioId = session.role === 'admin'
+    ? new URL(request.url).searchParams.get('studio') ?? ''
+    : session.studio!
 
   if (!STUDIOS[studioId]) {
     return NextResponse.json({ error: 'Невідома студія' }, { status: 400 })
-  }
-  if (session.role !== 'admin' && session.studio && session.studio !== studioId) {
-    return NextResponse.json({ error: 'Немає доступу до цієї студії' }, { status: 403 })
   }
 
   try {

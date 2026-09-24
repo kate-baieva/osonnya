@@ -14,12 +14,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Некоректний запит' }, { status: 400 })
   }
 
-  const studioId = session.role === 'admin' ? (body.studio ?? '') : session.studio ?? (body.studio ?? '')
+  if (session.role !== 'admin' && !session.studio) {
+    return NextResponse.json({ error: 'Студію не призначено' }, { status: 403 })
+  }
+
+  const studioId = session.role === 'admin' ? (body.studio ?? '') : session.studio!
   if (!STUDIOS[studioId]) {
     return NextResponse.json({ error: 'Невідома студія' }, { status: 400 })
-  }
-  if (session.role !== 'admin' && session.studio && session.studio !== studioId) {
-    return NextResponse.json({ error: 'Немає доступу до цієї студії' }, { status: 403 })
   }
 
   const status = body.status as PieceStatus
