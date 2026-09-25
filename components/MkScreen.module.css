@@ -1,0 +1,80 @@
+.list { display: flex; flex-direction: column; gap: 8px; }
+
+.row {
+  background: #fff;
+  border: 1px solid #f0e8df;
+  border-radius: 11px;
+  padding: 12px 15px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.rowNoShow { background: #fdfaf6; opacity: 0.72; }
+
+.main { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
+.name { font-weight: 700; color: #2d1f0f; }
+.meta { font-size: 12.5px; color: #9b8878; }
+.note { font-size: 12.5px; color: #9c6a1e; }
+
+.pay { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; font-size: 13px; }
+.debt { color: #a1341f; font-weight: 700; }
+.ok { color: #4a7c4e; font-weight: 700; }
+
+.attend { display: flex; align-items: center; gap: 8px; }
+.attendLabel { font-size: 12px; color: #9b8878; }
+.countBtn {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  border: 1px solid #e4d8cb;
+  background: #fdfaf6;
+  font-size: 15px; font-weight: 700; line-height: 1;
+  cursor: pointer; color: #2d1f0f;
+}
+.countBtn:disabled { opacity: 0.4; cursor: default; }
+.countVal { font-weight: 800; min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.countChanged { color: #9c6a1e; }
+
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.totals {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  background: #fdfaf6;
+  border: 1px solid #f0e8df;
+  border-radius: 11px;
+  padding: 13px 16px;
+  margin-bottom: 16px;
+}
+.total { display: flex; flex-direction: column; gap: 1px; }
+.totalValue { font-size: 19px; font-weight: 800; color: #2d1f0f; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.totalLabel { font-size: 12px; color: #9b8878; }
+.totalDebt .totalValue { color: #a1341f; }
+
+/* ─── Модалка ──────────────────────────────────────── */
+
+.modalWrap {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 18px;
+}
+.modalBack { position: absolute; inset: 0; background: rgba(20, 14, 8, 0.5); }
+.modalCard {
+  position: relative; background: #fff; border-radius: 15px; padding: 22px;
+  width: 100%; max-width: 430px; max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5);
+}
+.modalHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.modalTitle { font-size: 17px; font-weight: 800; margin: 0; color: #2d1f0f; }
+.modalClose {
+  background: none; border: none; color: #9b8878;
+  font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.modalFoot { display: flex; gap: 9px; margin-top: 18px; }
+.modalFoot > * { flex: 1; text-align: center; }
+
+@media (max-width: 640px) {
+  .row { align-items: flex-start; }
+  .pay { align-items: flex-start; }
+  .actions > * { flex: 1; }
+}

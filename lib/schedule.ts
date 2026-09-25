@@ -172,25 +172,71 @@ async function readReserved(spreadsheetId: string): Promise<ScheduleItem[]> {
   return items
 }
 
+// Індивідуальні МК окремого аркуша не мають — вони живуть у «MK Orders».
+// Кілька рядків з однією датою й часом — це один майстер-клас.
+async function readIndividual(studioId: string): Promise<ScheduleItem[]> {
+  const { getOrders } = await import('./orders')
+  const orders = await getOrders(studioId)
+
+  const byKey = new Map<string, { people: number; master: string; rowIndex: number; raw: string }>()
+  for (const order of orders) {
+    if (!order.mkKey) continue
+    if (normalize(order.type) !== 'individual') continue
+
+    const found = byKey.get(order.mkKey)
+    if (found) {
+      found.people += order.people
+      if (!found.master && order.master) found.master = order.master
+    } else {
+      byKey.set(order.mkKey, {
+        people: order.people,
+        master: order.master,
+        rowIndex: order.rowIndex,
+        raw: order.mkDatetime,
+      })
+    }
+  }
+
+  return Array.from(byKey.entries()).map(([key, value]) => {
+    const [date, time] = key.split(' ')
+    return {
+      id: `indiv-${key}`,
+      source: 'group' as const, // майстриня зберігається в рядку замовлення
+      rowIndex: value.rowIndex,
+      datetime: value.raw,
+      date,
+      time,
+      type: 'indiv' as MkType,
+      title: '',
+      capacity: value.people,
+      booked: value.people,
+      master: value.master,
+      eventId: '',
+    }
+  })
+}
+
 export async function getSchedule(
   studioId: string,
   { past = false }: { past?: boolean } = {},
 ): Promise<ScheduleItem[]> {
   const spreadsheetId = getSpreadsheetId(studioId)
-  const [group, reserved] = await Promise.all([
+  const [group, reserved, individual] = await Promise.all([
     readGroupSlots(spreadsheetId),
     readReserved(spreadsheetId),
+    readIndividual(studioId),
   ])
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const boundary = today.getTime()
 
-  // Групові слоти з «Резерв часу» дублюються — їх уже видно з Group MKs
-  const groupKeys = new Set(group.map((item) => `${item.date} ${item.time}`))
+  // «Резерв часу» дублює те, що вже є в Group MKs і MK Orders — показуємо раз
+  const known = new Set([...group, ...individual].map((item) => `${item.date} ${item.time}`))
   const merged = [
     ...group,
-    ...reserved.filter((item) => item.type !== 'group' || !groupKeys.has(`${item.date} ${item.time}`)),
+    ...individual,
+    ...reserved.filter((item) => !known.has(`${item.date} ${item.time}`)),
   ]
 
   return merged

@@ -196,6 +196,12 @@ export default function ScheduleScreen({ past = false }: { past?: boolean }) {
                     ? <span className={`${ui.btn} ${ui.btnSmall} ${ui.btnFull}`}>Місць немає</span>
                     : <CopyButton text={bookingLink} label="Копіювати посилання" className={`${ui.btn} ${ui.btnSmall}`} />
                 )}
+                {item.type !== 'kids' && (
+                  <a
+                    className={`${ui.btn} ${ui.btnSmall}`}
+                    href={`/admin/mk?studio=${studioId}&at=${encodeURIComponent(`${item.date} ${item.time}`)}`}
+                  >Відкрити</a>
+                )}
               </div>
             </article>
           )
