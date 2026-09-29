@@ -233,6 +233,40 @@ export interface NewPiece {
   photoUrl?: string
 }
 
+// Вироби конкретного майстер-класу — за датою й часом МК
+export async function getPiecesForMk(studioId: string, mkKey: string): Promise<Piece[]> {
+  const { mkKeyOf } = await import('./orders')
+  const pieces = await getPieces(studioId)
+  return pieces.filter((piece) => mkKeyOf(piece.mkDate) === mkKey)
+}
+
+// Один виріб — повертає рядок і номер, щоб одразу прикріпити фото
+export async function addPiece(
+  studioId: string,
+  piece: { client: string; mkDate: string; status: PieceStatus; master: string },
+): Promise<{ rowIndex: number; number: string }> {
+  const spreadsheetId = getSpreadsheetId(studioId)
+  const map = await ensureColumns(spreadsheetId)
+  const number = await getNextPieceNumber(studioId)
+
+  const width = Math.max(...Object.values(map).map((i) => i as number)) + 1
+  const row = new Array<string>(width).fill('')
+  const put = (field: Field, value: string) => {
+    const index = map[field]
+    if (index !== undefined) row[index] = value
+  }
+  put('number', number)
+  put('client', piece.client)
+  put('mkDate', piece.mkDate)
+  put('status', piece.status)
+  put('master', piece.master)
+
+  const rowIndex = await insertRowAfterData(
+    spreadsheetId, SHEET, DATA_ROW, columnLetter(map.number ?? 0), row,
+  )
+  return { rowIndex, number }
+}
+
 export async function addPieces(studioId: string, pieces: NewPiece[]): Promise<void> {
   if (pieces.length === 0) return
 

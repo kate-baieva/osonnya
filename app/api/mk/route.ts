@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { addPayment, addWalkIn, getOrdersForMk, setAttendance } from '@/lib/orders'
 import { getSchedule } from '@/lib/schedule'
+import { getPiecesForMk } from '@/lib/pieces'
 import { STUDIOS } from '@/lib/studios'
 
 async function resolve(request: Request, bodyStudio?: string) {
@@ -31,14 +32,15 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [orders, upcoming, past] = await Promise.all([
+    const [orders, pieces, upcoming, past] = await Promise.all([
       getOrdersForMk(resolved.studioId, mkKey),
+      getPiecesForMk(resolved.studioId, mkKey),
       getSchedule(resolved.studioId),
       getSchedule(resolved.studioId, { past: true }),
     ])
     const slot = [...upcoming, ...past].find((item) => `${item.date} ${item.time}` === mkKey) ?? null
 
-    return NextResponse.json({ mkKey, slot, orders })
+    return NextResponse.json({ mkKey, slot, orders, pieces })
   } catch (error) {
     console.error('[api/mk] GET', error)
     return NextResponse.json({ error: 'Не вдалося завантажити майстер-клас' }, { status: 500 })

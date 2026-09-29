@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Order } from '@/lib/orders'
+import type { Piece } from '@/lib/piece-types'
 import type { ScheduleItem } from '@/lib/schedule'
 import { STUDIOS } from '@/lib/studios'
 import ui from './ui.module.css'
@@ -34,6 +35,8 @@ export default function MkScreen({
 }) {
   const [slot, setSlot] = useState<ScheduleItem | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
+  const [pieces, setPieces] = useState<Piece[]>([])
+  const [addingPieceFor, setAddingPieceFor] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [paying, setPaying] = useState<Order | null>(null)
@@ -48,6 +51,7 @@ export default function MkScreen({
       if (!res.ok) { setError(json.error ?? 'Не вдалося завантажити'); return }
       setSlot(json.slot)
       setOrders(json.orders)
+      setPieces(json.pieces ?? [])
     } catch {
       setError("Немає з'єднання")
     } finally {
@@ -80,6 +84,10 @@ export default function MkScreen({
   const debt = orders.reduce((sum, o) => sum + o.debt, 0)
 
   const mkDatetime = orders[0]?.mkDatetime ?? slot?.datetime ?? ''
+
+  const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ')
+  const piecesOf = (client: string) =>
+    pieces.filter((piece) => normalize(piece.client) === normalize(client))
 
   return (
     <>
@@ -191,12 +199,52 @@ export default function MkScreen({
                       className={`${ui.btn} ${ui.btnSmall} ${order.debt > 0 ? ui.btnPrimary : ''}`}
                       onClick={() => setPaying(order)}
                     >Додати оплату</button>
+                    <button
+                      className={`${ui.btn} ${ui.btnSmall}`}
+                      onClick={() => setAddingPieceFor(order)}
+                    >
+                      + Виріб
+                      {piecesOf(order.client).length > 0 && ` (${piecesOf(order.client).length})`}
+                    </button>
                   </div>
                 </div>
               )
             })}
           </div>
         </>
+      )}
+
+      {!loading && pieces.length > 0 && (
+        <section className={ui.card} style={{ marginTop: 18 }}>
+          <h2 className={ui.cardTitle}>Вироби з цього майстер-класу · {pieces.length}</h2>
+          <p className={ui.cardDesc}>Номери присвоєні автоматично, далі ними керує сторінка «Вироби»</p>
+          <div className={styles.list}>
+            {pieces.map((piece) => (
+              <div key={piece.rowIndex} className={styles.row}>
+                <div className={styles.main}>
+                  <span className={styles.name}>№ {piece.number}</span>
+                  <span className={styles.meta}>{piece.client}{piece.master ? ` · ${piece.master}` : ''}</span>
+                </div>
+                <span className={`${ui.pill} ${ui.pillMuted}`}>{piece.status || 'без статусу'}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {addingPieceFor && (
+        <AddPieceDialog
+          order={addingPieceFor}
+          studioId={studioId}
+          mkDatetime={mkDatetime}
+          existing={piecesOf(addingPieceFor.client).length}
+          onClose={() => setAddingPieceFor(null)}
+          onSaved={async (warning) => {
+            setAddingPieceFor(null)
+            if (warning) setError(warning)
+            await load()
+          }}
+        />
       )}
 
       {paying && (
@@ -372,6 +420,95 @@ function WalkInDialog({
               setSaving(false)
             }}
           >{saving ? 'Додаємо…' : 'Додати'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AddPieceDialog({
+  order,
+  studioId,
+  mkDatetime,
+  existing,
+  onClose,
+  onSaved,
+}: {
+  order: Order
+  studioId: string
+  mkDatetime: string
+  existing: number
+  onClose: () => void
+  onSaved: (warning?: string) => Promise<void>
+}) {
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const pick = (file: File | null) => {
+    setPhoto(file)
+    setPreview(file ? URL.createObjectURL(file) : null)
+  }
+
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      const form = new FormData()
+      form.append('studio', studioId)
+      form.append('client', order.client)
+      form.append('mkDatetime', mkDatetime)
+      if (photo) form.append('photo', photo)
+
+      const res = await fetch('/api/mk/pieces', { method: 'POST', body: form })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Не вдалося створити виріб'); return }
+
+      await onSaved(json.photoSaved === false
+        ? `Виріб № ${json.number} створено, але фото не завантажилось. Додайте його зі сторінки «Вироби».`
+        : undefined)
+    } catch {
+      setError("Немає з'єднання")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className={styles.modalWrap}>
+      <div className={styles.modalBack} onClick={onClose} />
+      <div className={styles.modalCard}>
+        <div className={styles.modalHead}>
+          <h3 className={styles.modalTitle}>Додати виріб</h3>
+          <button className={styles.modalClose} onClick={onClose}>×</button>
+        </div>
+        <p className={ui.cardDesc}>
+          {order.client}
+          {existing > 0 && ` · вже додано ${existing}`}
+          {' · номер присвоїться автоматично'}
+        </p>
+
+        <label className={styles.photoPick}>
+          {preview
+            ? <img src={preview} alt="" className={styles.photoPreview} />
+            : <span className={styles.photoHint}>Сфотографувати виріб</span>}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className={styles.photoInput}
+            onChange={(e) => pick(e.target.files?.[0] ?? null)}
+          />
+        </label>
+
+        {error && <p className={ui.error} style={{ marginTop: 12 }}>{error}</p>}
+
+        <div className={styles.modalFoot}>
+          <button className={ui.btn} onClick={onClose}>Скасувати</button>
+          <button className={`${ui.btn} ${ui.btnPrimary}`} disabled={saving} onClick={save}>
+            {saving ? 'Зберігаємо…' : 'Створити виріб'}
+          </button>
         </div>
       </div>
     </div>
