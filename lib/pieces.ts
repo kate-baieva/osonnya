@@ -147,6 +147,26 @@ export interface StatusChange {
   comment?: string
 }
 
+export const COLLECTED_STATUS = 'Забрали'
+
+export async function setPhoto(
+  studioId: string,
+  rowIndex: number,
+  url: string,
+): Promise<void> {
+  const spreadsheetId = getSpreadsheetId(studioId)
+  const map = await ensureColumns(spreadsheetId)
+  if (map.photoUrl === undefined) throw new Error('В аркуші Pieces немає колонки «Фото»')
+
+  const sheets = getSheetsClient()
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${SHEET}!${columnLetter(map.photoUrl)}${rowIndex}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[url]] },
+  })
+}
+
 // Масова зміна статусів — одним запитом, щоб не впертись у ліміти API.
 export async function updateStatuses(studioId: string, changes: StatusChange[]): Promise<void> {
   if (changes.length === 0) return
@@ -177,6 +197,30 @@ export async function updateStatuses(studioId: string, changes: StatusChange[]):
     spreadsheetId,
     requestBody: { valueInputOption: 'RAW', data },
   })
+
+  await archiveCollectedPhotos(studioId, changes)
+}
+
+// Виріб забрали — фото переїжджає в підпапку «Віддали».
+// Помилки тут не мають ламати зміну статусу: статус уже збережений.
+async function archiveCollectedPhotos(studioId: string, changes: StatusChange[]): Promise<void> {
+  const collected = changes.filter((change) => change.status === COLLECTED_STATUS)
+  if (collected.length === 0) return
+
+  try {
+    const { fileIdFromUrl, moveToDelivered } = await import('./drive')
+    const pieces = await getPieces(studioId)
+    const byRow = new Map(pieces.map((piece) => [piece.rowIndex, piece]))
+
+    for (const change of collected) {
+      const fileId = fileIdFromUrl(byRow.get(change.rowIndex)?.photoUrl ?? '')
+      if (!fileId) continue
+      await moveToDelivered(studioId, fileId).catch((error) =>
+        console.warn('[pieces] фото не перенеслося в «Віддали»:', error?.message))
+    }
+  } catch (error) {
+    console.warn('[pieces] перенесення фото пропущено:', error)
+  }
 }
 
 export interface NewPiece {

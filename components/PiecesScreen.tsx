@@ -29,6 +29,15 @@ const BADGE_CLASS: Record<string, string> = {
   'Частковий брак': styles.badgeDefect,
 }
 
+// У таблиці лежить посилання на Drive — застосунок віддає файл через власний проксі
+function photoSrc(value: string): string | null {
+  const text = String(value ?? '').trim()
+  if (!text) return null
+  const match = text.match(/\/d\/([A-Za-z0-9_-]{20,})/) ?? text.match(/[?&]id=([A-Za-z0-9_-]{20,})/)
+  const id = match ? match[1] : (/^[A-Za-z0-9_-]{20,}$/.test(text) ? text : null)
+  return id ? `/api/photo/${id}` : null
+}
+
 // Дати в таблиці — "2/16/2025 16:30:00" або ISO
 function parseSheetDate(raw: string): number {
   if (!raw) return 0
@@ -76,6 +85,7 @@ export default function PiecesScreen({
   const [targetStatus, setTargetStatus] = useState<PieceStatus>('Утіль')
   const [comment, setComment] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState<number | null>(null)
 
   const load = useMemo(() => async (studioId: string) => {
     setLoading(true)
@@ -137,6 +147,25 @@ export default function PiecesScreen({
 
   const selectAllVisible = () => setSelected(new Set(visible.map((p) => p.rowIndex)))
   const clearSelection = () => setSelected(new Set())
+
+  const uploadPhoto = async (piece: Piece, file: File) => {
+    setUploading(piece.rowIndex)
+    setError('')
+    try {
+      const form = new FormData()
+      form.append('studio', studio)
+      form.append('rowIndex', String(piece.rowIndex))
+      form.append('photo', file)
+      const res = await fetch('/api/pieces/photo', { method: 'POST', body: form })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Не вдалося зберегти фото'); return }
+      await load(studio)
+    } catch {
+      setError("Немає з'єднання. Фото не збережено.")
+    } finally {
+      setUploading(null)
+    }
+  }
 
   const needsComment = DEFECT_STATUSES.includes(targetStatus)
 
@@ -238,11 +267,30 @@ export default function PiecesScreen({
                 onClick={(e) => e.stopPropagation()}
               />
 
-              {piece.photoUrl ? (
-                <img src={piece.photoUrl} alt="" className={styles.thumb} />
-              ) : (
-                <div className={styles.thumbEmpty}>🏺</div>
-              )}
+              <label
+                className={styles.thumbWrap}
+                onClick={(e) => e.stopPropagation()}
+                title={photoSrc(piece.photoUrl) ? 'Замінити фото' : 'Сфотографувати виріб'}
+              >
+                {uploading === piece.rowIndex ? (
+                  <span className={styles.thumbEmpty}>…</span>
+                ) : photoSrc(piece.photoUrl) ? (
+                  <img src={photoSrc(piece.photoUrl)!} alt="" className={styles.thumb} />
+                ) : (
+                  <span className={styles.thumbEmpty}>+</span>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className={styles.fileInput}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) uploadPhoto(piece, file)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
 
               <div className={styles.info}>
                 <span className={styles.number}>№ {piece.number}</span>

@@ -1,4 +1,6 @@
+import { Suspense } from 'react'
 import ProfileScreen from '@/components/ProfileScreen'
+import DriveConnect from '@/components/DriveConnect'
 import { getSession } from '@/lib/session'
 import ui from '@/components/ui.module.css'
 
@@ -11,9 +13,14 @@ export default async function AdminProfilePage() {
       <div className={ui.pageHead}>
         <div className={ui.pageHeadText}>
           <h1 className={ui.title}>Налаштування профілю</h1>
-          <p className={ui.sub}>Ваш власний обліковий запис.</p>
+          <p className={ui.sub}>Ваш обліковий запис і під&apos;єднані сервіси.</p>
         </div>
       </div>
+
+      <Suspense fallback={null}>
+        <DriveConnect />
+      </Suspense>
+
       <ProfileScreen
         name={session?.name ?? ''}
         login={session?.login ?? ''}
