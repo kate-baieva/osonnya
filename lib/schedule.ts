@@ -281,6 +281,52 @@ export async function assignMaster(
     valueInputOption: 'RAW',
     requestBody: { values: [[master]] },
   })
+
+  await syncEventFor(studioId, item.rowIndex)
+}
+
+// Оновлює подію в календарі за поточним станом рядка
+async function syncEventFor(studioId: string, rowIndex: number): Promise<void> {
+  const { calendarConfigured, upsertEvent } = await import('./calendar')
+  if (!calendarConfigured(studioId)) return
+
+  try {
+    const spreadsheetId = getSpreadsheetId(studioId)
+    const slots = await readGroupSlots(spreadsheetId)
+    const slot = slots.find((item) => item.rowIndex === rowIndex)
+    if (!slot) return
+
+    const eventId = await upsertEvent(studioId, {
+      type: slot.type,
+      title: slot.title,
+      date: slot.date,
+      time: slot.time,
+      capacity: slot.capacity,
+      booked: slot.booked,
+      master: slot.master,
+    }, slot.eventId || undefined)
+
+    // Нову подію треба запам'ятати, щоб наступного разу оновлювати її, а не плодити копії
+    if (eventId && eventId !== slot.eventId) {
+      const sheets = getSheetsClient()
+      const headerRes = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${GROUP_SHEET}'!A${GROUP_HEADER_ROW}:Z${GROUP_HEADER_ROW}`,
+      })
+      const header = (headerRes.data.values?.[0] ?? []) as string[]
+      const column = header.findIndex((raw) => normalize(raw) === 'eventid [auto]')
+      if (column !== -1) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${GROUP_SHEET}'!${columnLetter(column)}${rowIndex}`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [[eventId]] },
+        })
+      }
+    }
+  } catch (error) {
+    console.warn('[schedule] подію не синхронізовано:', (error as Error).message)
+  }
 }
 
 export interface NewScheduleEntry {
@@ -305,10 +351,30 @@ export async function addScheduleEntry(
   const spreadsheetId = getSpreadsheetId(studioId)
   const datetime = toSheetDatetime(entry.date, entry.time)
 
+  const { calendarConfigured, upsertEvent } = await import('./calendar')
+
+  // Подію в календарі створюємо самі, щоб не залежати від надбудови в таблиці
+  let eventId: string | null = null
+  if (calendarConfigured(studioId)) {
+    try {
+      eventId = await upsertEvent(studioId, {
+        type: entry.type,
+        title: entry.title,
+        date: entry.date,
+        time: entry.time,
+        capacity: entry.capacity,
+        booked: 0,
+        master: '',
+      })
+    } catch (error) {
+      console.warn('[schedule] подію в календарі не створено:', (error as Error).message)
+    }
+  }
+
   if (entry.type === 'group') {
     await insertRowAfterData(
       spreadsheetId, GROUP_SHEET, GROUP_DATA_ROW, 'A',
-      [datetime, entry.capacity, '', '', entry.title],
+      [datetime, entry.capacity, '', eventId ?? '', entry.title],
     )
   }
 
