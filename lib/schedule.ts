@@ -1,4 +1,4 @@
-import { getSheetsClient } from './google-sheets'
+import { getSheetsClient, readValues } from './google-sheets'
 import { getSpreadsheetId } from './studios'
 import { insertRowAfterData } from './sheet-rows'
 
@@ -85,11 +85,9 @@ function typeFromText(value: string): MkType {
 async function readGroupSlots(spreadsheetId: string): Promise<ScheduleItem[]> {
   const sheets = getSheetsClient()
 
-  const headerRes = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${GROUP_SHEET}'!A${GROUP_HEADER_ROW}:Z${GROUP_HEADER_ROW}`,
-  })
-  const header = (headerRes.data.values?.[0] ?? []) as string[]
+  const header = (await readValues(
+    spreadsheetId, `'${GROUP_SHEET}'!A${GROUP_HEADER_ROW}:Z${GROUP_HEADER_ROW}`,
+  ))[0] ?? []
 
   const map: Partial<Record<GroupField, number>> = {}
   header.forEach((raw, index) => {
@@ -97,11 +95,7 @@ async function readGroupSlots(spreadsheetId: string): Promise<ScheduleItem[]> {
     if (field && map[field] === undefined) map[field] = index
   })
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${GROUP_SHEET}'!A${GROUP_DATA_ROW}:Z`,
-  })
-  const rows = (res.data.values ?? []) as string[][]
+  const rows = await readValues(spreadsheetId, `'${GROUP_SHEET}'!A${GROUP_DATA_ROW}:Z`)
 
   const cell = (row: string[], field: GroupField) => {
     const index = map[field]
@@ -135,14 +129,9 @@ async function readGroupSlots(spreadsheetId: string): Promise<ScheduleItem[]> {
 }
 
 async function readReserved(spreadsheetId: string): Promise<ScheduleItem[]> {
-  const sheets = getSheetsClient()
   let rows: string[][] = []
   try {
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `'${RESERVED_SHEET}'!A${RESERVED_DATA_ROW}:E`,
-    })
-    rows = (res.data.values ?? []) as string[][]
+    rows = await readValues(spreadsheetId, `'${RESERVED_SHEET}'!A${RESERVED_DATA_ROW}:E`)
   } catch {
     return [] // аркуша ще немає — не критично
   }

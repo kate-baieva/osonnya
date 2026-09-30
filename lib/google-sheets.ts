@@ -17,7 +17,69 @@ function getSheets() {
   return google.sheets({ version: 'v4', auth: getAuth() })
 }
 
-export { getSheets as getSheetsClient }
+// У Google ліміт 60 читань на хвилину, а одна сторінка читає ті самі діапазони
+// по кілька разів — розклад і список записів обидва тягнуть «MK Orders».
+// Через це сторінка майстер-класу почала падати через раз.
+//
+// Тому читання кешуються на кілька секунд, а будь-який запис скидає кеш —
+// щоб зміна, зроблена в застосунку, ніколи не показувалась застарілою.
+const READ_TTL_MS = 20_000
+
+const readCache = new Map<string, { at: number; rows: string[][] }>()
+const inFlightReads = new Map<string, Promise<string[][]>>()
+
+function invalidateReadCache(): void {
+  readCache.clear()
+}
+
+export async function readValues(spreadsheetId: string, range: string): Promise<string[][]> {
+  const key = `${spreadsheetId}|${range}`
+
+  const cached = readCache.get(key)
+  if (cached && Date.now() - cached.at < READ_TTL_MS) return cached.rows
+
+  const running = inFlightReads.get(key)
+  if (running) return running
+
+  const request = getSheets().spreadsheets.values
+    .get({ spreadsheetId, range })
+    .then((res) => {
+      const rows = (res.data.values ?? []) as string[][]
+      readCache.set(key, { at: Date.now(), rows })
+      return rows
+    })
+
+  inFlightReads.set(key, request)
+  try {
+    return await request
+  } finally {
+    inFlightReads.delete(key)
+  }
+}
+
+// Клієнт, у якого запис додатково скидає кеш читань.
+// Весь код застосунку ходить саме через нього, тож окремо про це думати не треба.
+function withCacheInvalidation(client: ReturnType<typeof getSheets>) {
+  const patch = (owner: Record<string, unknown>, method: string) => {
+    const original = owner[method]
+    if (typeof original !== 'function') return
+    owner[method] = async (...args: unknown[]) => {
+      const result = await (original as (...a: unknown[]) => Promise<unknown>).apply(owner, args)
+      invalidateReadCache()
+      return result
+    }
+  }
+
+  const values = client.spreadsheets.values as unknown as Record<string, unknown>
+  for (const method of ['update', 'append', 'batchUpdate', 'clear']) patch(values, method)
+  patch(client.spreadsheets as unknown as Record<string, unknown>, 'batchUpdate')
+
+  return client
+}
+
+export function getSheetsClient() {
+  return withCacheInvalidation(getSheets())
+}
 
 // Повертає числовий sheetId (gid) для аркуша за назвою
 async function getSheetIdByName(sheetName: string, spreadsheetId: string): Promise<number | null> {

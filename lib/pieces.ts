@@ -1,4 +1,4 @@
-import { getSheetsClient } from './google-sheets'
+import { getSheetsClient, readValues } from './google-sheets'
 import { getSpreadsheetId } from './studios'
 import { insertRowAfterData } from './sheet-rows'
 import type { Piece, PieceStatus } from './piece-types'
@@ -59,12 +59,8 @@ function buildColumnMap(header: string[]): ColumnMap {
 }
 
 async function readHeader(spreadsheetId: string): Promise<string[]> {
-  const sheets = getSheetsClient()
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEET}!A${HEADER_ROW}:Z${HEADER_ROW}`,
-  })
-  return (res.data.values?.[0] ?? []) as string[]
+  const rows = await readValues(spreadsheetId, `${SHEET}!A${HEADER_ROW}:Z${HEADER_ROW}`)
+  return (rows[0] ?? []) as string[]
 }
 
 // Дописує заголовки «Майстриня» / «Фото», якщо їх ще немає.
@@ -103,13 +99,7 @@ export async function getPieces(studioId: string): Promise<Piece[]> {
   const spreadsheetId = getSpreadsheetId(studioId)
   const map = await ensureColumns(spreadsheetId)
 
-  const sheets = getSheetsClient()
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEET}!A${DATA_ROW}:Z`,
-  })
-
-  const rows = (res.data.values ?? []) as string[][]
+  const rows = await readValues(spreadsheetId, `${SHEET}!A${DATA_ROW}:Z`)
   const pieces: Piece[] = []
 
   rows.forEach((row, i) => {

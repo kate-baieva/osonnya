@@ -1,4 +1,4 @@
-import { getSheetsClient } from './google-sheets'
+import { getSheetsClient, readValues } from './google-sheets'
 import { getSpreadsheetId } from './studios'
 import { insertRowAfterData } from './sheet-rows'
 import { parseDatetime } from './schedule'
@@ -87,11 +87,8 @@ export function mkKeyOf(raw: string): string {
 
 async function readColumnMap(spreadsheetId: string): Promise<ColumnMap> {
   const sheets = getSheetsClient()
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${SHEET}'!A${HEADER_ROW}:AZ${HEADER_ROW}`,
-  })
-  const header = (res.data.values?.[0] ?? []) as string[]
+  const rows = await readValues(spreadsheetId, `'${SHEET}'!A${HEADER_ROW}:AZ${HEADER_ROW}`)
+  const header = (rows[0] ?? []) as string[]
 
   const map: ColumnMap = {}
   header.forEach((raw, index) => {
@@ -106,11 +103,7 @@ async function readContacts(spreadsheetId: string): Promise<Map<string, { phone:
   const sheets = getSheetsClient()
   const contacts = new Map<string, { phone: string; email: string }>()
   try {
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: "'Clients'!A6:G",
-    })
-    for (const row of (res.data.values ?? []) as string[][]) {
+    for (const row of await readValues(spreadsheetId, "'Clients'!A6:G")) {
       const full = `${String(row[0] ?? '').trim()} ${String(row[1] ?? '').trim()}`.trim()
       if (!full) continue
       contacts.set(normalize(full), {
@@ -128,13 +121,11 @@ export async function getOrders(studioId: string): Promise<Order[]> {
   const spreadsheetId = getSpreadsheetId(studioId)
   const sheets = getSheetsClient()
 
-  const [map, contacts, res] = await Promise.all([
+  const [map, contacts, rows] = await Promise.all([
     readColumnMap(spreadsheetId),
     readContacts(spreadsheetId),
-    sheets.spreadsheets.values.get({ spreadsheetId, range: `'${SHEET}'!A${DATA_ROW}:AZ` }),
+    readValues(spreadsheetId, `'${SHEET}'!A${DATA_ROW}:AZ`),
   ])
-
-  const rows = (res.data.values ?? []) as string[][]
   const cell = (row: string[], field: Field) => {
     const index = map[field]
     return index === undefined ? '' : String(row[index] ?? '').trim()
