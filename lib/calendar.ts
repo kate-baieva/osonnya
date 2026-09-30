@@ -6,7 +6,14 @@ import type { MkType } from './schedule'
 // щоб календар був розшарений на нього з правом змінювати події.
 
 const TIMEZONE = 'Europe/Kyiv'
-const DEFAULT_DURATION_MINUTES = 120
+
+// Тривалості взяті з подій, які створювала стара надбудова,
+// щоб календар не почав виглядати інакше після переходу
+const DURATION_MINUTES: Record<MkType, number> = {
+  group: 150,
+  indiv: 150,
+  kids: 60,
+}
 
 const CALENDAR_IDS: Record<string, string | undefined> = {
   sumy: process.env.CALENDAR_ID_SUMY,
@@ -46,8 +53,17 @@ export interface CalendarEventInput {
   durationMinutes?: number
 }
 
+// Підпис у тому ж вигляді, до якого звикли в календарі
+function summaryFor(input: CalendarEventInput): string {
+  if (input.type === 'kids') return input.title?.trim() || 'Група для дітей'
+  if (input.type === 'indiv') {
+    return `Individual MK for ${input.capacity || input.booked} people`
+  }
+  return `Group MK, ${input.booked}/${input.capacity} Signups`
+}
+
 function buildEvent(input: CalendarEventInput) {
-  const duration = input.durationMinutes ?? DEFAULT_DURATION_MINUTES
+  const duration = input.durationMinutes ?? DURATION_MINUTES[input.type]
   const start = new Date(`${input.date}T${input.time}:00`)
   const end = new Date(start.getTime() + duration * 60000)
   const iso = (d: Date) => {
@@ -56,8 +72,9 @@ function buildEvent(input: CalendarEventInput) {
       + `T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
   }
 
-  const summary = input.title?.trim() || TYPE_LABEL[input.type]
+  const summary = summaryFor(input)
   const lines: string[] = []
+  if (input.title?.trim() && input.type !== 'kids') lines.push(input.title.trim())
   if (input.capacity > 0) lines.push(`Записів: ${input.booked} з ${input.capacity}`)
   lines.push(`Майстриня: ${input.master || 'не призначено'}`)
 
