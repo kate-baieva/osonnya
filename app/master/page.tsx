@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import MasterSchedule from '@/components/MasterSchedule'
 import { getSession } from '@/lib/session'
 import { getPieces } from '@/lib/pieces'
+import ui from '@/components/ui.module.css'
 import styles from './master.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -24,12 +26,12 @@ export default async function MasterHome() {
   let raw = 0
   let bisque = 0
   let glazing = 0
+  let ready = 0
   let readyToFire = 0
   let failed = false
 
   try {
-    const pieces = await getPieces(studioId)
-    for (const piece of pieces) {
+    for (const piece of await getPieces(studioId)) {
       if (piece.status === 'Невипалений') {
         raw++
         const time = parseSheetDate(piece.mkDate)
@@ -37,6 +39,7 @@ export default async function MasterHome() {
       }
       if (piece.status === 'Утіль') bisque++
       if (piece.status === 'Глазурується') glazing++
+      if (piece.status === 'Готово') ready++
     }
   } catch {
     failed = true
@@ -44,16 +47,25 @@ export default async function MasterHome() {
 
   return (
     <>
-      <h1 className={styles.pageTitle}>Що зараз у роботі</h1>
+      <div className={ui.pageHead}>
+        <div className={ui.pageHeadText}>
+          <h1 className={ui.title}>Головна</h1>
+          <p className={ui.sub}>Спершу розклад, нижче — що чекає в печі.</p>
+        </div>
+      </div>
+
+      <MasterSchedule masterName={session?.name ?? ''} />
+
+      <h2 className={ui.cardTitle} style={{ fontSize: 18, marginBottom: 12 }}>Вироби</h2>
 
       {failed ? (
-        <p className={styles.soon}>Не вдалося завантажити вироби. Спробуйте оновити сторінку.</p>
+        <p className={ui.empty}>Не вдалося завантажити вироби. Спробуйте оновити сторінку.</p>
       ) : (
         <div className={styles.tiles}>
           <Link href="/master/pieces" className={`${styles.tile} ${readyToFire > 0 ? styles.tileAccent : ''}`}>
             <span className={styles.tileValue}>{readyToFire}</span>
             <span className={styles.tileLabel}>Готові до утілю</span>
-            <span className={styles.tileHint}>висохли, лежать 2+ тижні</span>
+            <span className={styles.tileHint}>лежать 2+ тижні</span>
           </Link>
 
           <Link href="/master/pieces" className={styles.tile}>
@@ -73,14 +85,14 @@ export default async function MasterHome() {
             <span className={styles.tileLabel}>Глазурується</span>
             <span className={styles.tileHint}>у другому випалі</span>
           </Link>
+
+          <Link href="/master/pieces" className={styles.tile}>
+            <span className={styles.tileValue}>{ready}</span>
+            <span className={styles.tileLabel}>Готово</span>
+            <span className={styles.tileHint}>чекає, щоб забрали</span>
+          </Link>
         </div>
       )}
-
-      <div className={styles.soon}>
-        <b>Далі буде тут</b>
-        Майстер-класи, призначені на тебе, звірка списку учасників і роздача виробів —
-        наступний крок розробки. Поки що всі вироби на сторінці «Вироби».
-      </div>
     </>
   )
 }
