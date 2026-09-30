@@ -9,8 +9,9 @@ export default function AdminPiecesPage() {
       <div className={ui.pageHead}>
         <div className={ui.pageHeadText}>
           <h1 className={ui.title}>Вироби</h1>
-          <p className={ui.sub}>По обох студіях, з фільтрами за статусом.</p>
+          <p className={ui.sub}>По обох студіях. Те, що старше чотирьох місяців, лежить в архіві.</p>
         </div>
+        <a className={ui.btn} href="/admin/pieces/archive">Архів виробів</a>
       </div>
       <PiecesScreen studio="sumy" canSwitchStudio />
     </>

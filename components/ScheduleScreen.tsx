@@ -21,6 +21,9 @@ const TAG = {
   kids: { label: 'дитячий', className: styles.tagKids },
 }
 
+// В архіві сотні майстер-класів — малювати всі важко, решту знаходять пошуком
+const ARCHIVE_PAGE = 60
+
 const FALLBACK_TITLE = {
   group: 'Груповий майстер-клас',
   indiv: 'Індивідуальний майстер-клас',
@@ -42,6 +45,7 @@ export default function ScheduleScreen({ past = false }: { past?: boolean }) {
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<'all' | MkType>('all')
   const [adding, setAdding] = useState(false)
+  const [query, setQuery] = useState('')
   const [origin, setOrigin] = useState('')
 
   useEffect(() => setOrigin(window.location.origin), [])
@@ -83,7 +87,17 @@ export default function ScheduleScreen({ past = false }: { past?: boolean }) {
     return result
   }, [items])
 
-  const visible = filter === 'all' ? items : items.filter((item) => item.type === filter)
+  const byType = filter === 'all' ? items : items.filter((item) => item.type === filter)
+
+  const needle = query.trim().toLowerCase()
+  const matched = needle
+    ? byType.filter((item) =>
+        item.title.toLowerCase().includes(needle)
+        || item.date.includes(needle)
+        || (item.master ?? '').toLowerCase().includes(needle))
+    : byType
+
+  const visible = past && !needle ? matched.slice(0, ARCHIVE_PAGE) : matched
 
   const assign = async (item: ScheduleItem, master: string) => {
     setItems((prev) => prev.map((x) => (x.id === item.id ? { ...x, master } : x)))
@@ -132,6 +146,22 @@ export default function ScheduleScreen({ past = false }: { past?: boolean }) {
           </button>
         ))}
       </div>
+
+      {past && (
+        <input
+          className={ui.input}
+          style={{ marginBottom: 14 }}
+          placeholder="Пошук за назвою, майстринею або датою (2026-09)"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      )}
+
+      {past && !loading && matched.length > visible.length && (
+        <p className={ui.sub} style={{ marginBottom: 10 }}>
+          Показано {visible.length} з {matched.length} — знайдіть потрібний пошуком
+        </p>
+      )}
 
       {error && <p className={ui.error}>{error}</p>}
       {loading && <p className={ui.empty}>Завантаження…</p>}

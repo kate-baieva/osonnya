@@ -7,6 +7,13 @@ import styles from './PiecesScreen.module.css'
 
 const STUDIO_LIST = [STUDIOS.sumy, STUDIOS.if]
 
+// Старші за чотири місяці йдуть в архів, щоб робочий список лишався коротким
+const ARCHIVE_AFTER_DAYS = 120
+
+// В архіві понад тисяча виробів — малювати їх усі важко для телефона.
+// Показуємо частину, а решту знаходять пошуком.
+const ARCHIVE_PAGE = 100
+
 type FilterId = 'raw' | 'bisque' | 'glazing' | 'ready' | 'problem' | 'given' | 'all'
 
 const FILTERS: { id: FilterId; label: string; statuses: string[] | null }[] = [
@@ -70,16 +77,19 @@ function daysSince(raw: string): number | null {
 export default function PiecesScreen({
   studio: initialStudio,
   canSwitchStudio,
+  mode = 'work',
 }: {
   studio: string
   canSwitchStudio: boolean
+  mode?: 'work' | 'archive'
 }) {
+  const archive = mode === 'archive'
   const [studio, setStudio] = useState(initialStudio)
   const [pieces, setPieces] = useState<Piece[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [filter, setFilter] = useState<FilterId>('raw')
+  const [filter, setFilter] = useState<FilterId>(mode === 'archive' ? 'all' : 'raw')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [targetStatus, setTargetStatus] = useState<PieceStatus>('Утіль')
@@ -111,31 +121,48 @@ export default function PiecesScreen({
 
   useEffect(() => { load(studio) }, [studio, load])
 
+  // Вироби без дати лишаємо в роботі: викидати в архів те, про що нічого
+  // не відомо, — найкоротший шлях їх загубити
+  const scoped = useMemo(() => {
+    const cutoff = Date.now() - ARCHIVE_AFTER_DAYS * 86400000
+    return pieces.filter((piece) => {
+      const time = parseSheetDate(piece.mkDate)
+      if (!time) return !archive
+      return archive ? time < cutoff : time >= cutoff
+    })
+  }, [pieces, archive])
+
   const counts = useMemo(() => {
     const result: Record<FilterId, number> = {
-      raw: 0, bisque: 0, glazing: 0, ready: 0, problem: 0, given: 0, all: pieces.length,
+      raw: 0, bisque: 0, glazing: 0, ready: 0, problem: 0, given: 0, all: scoped.length,
     }
     for (const filterDef of FILTERS) {
       if (!filterDef.statuses) continue
-      result[filterDef.id] = pieces.filter((p) => filterDef.statuses!.includes(p.status)).length
+      result[filterDef.id] = scoped.filter((p) => filterDef.statuses!.includes(p.status)).length
     }
     return result
-  }, [pieces])
+  }, [scoped])
 
   const visible = useMemo(() => {
     const filterDef = FILTERS.find((f) => f.id === filter)!
     const needle = query.trim().toLowerCase()
 
-    return pieces
+    return scoped
       .filter((piece) => !filterDef.statuses || filterDef.statuses.includes(piece.status))
       .filter((piece) => {
         if (!needle) return true
         return piece.number.toLowerCase().includes(needle)
           || piece.client.toLowerCase().includes(needle)
       })
-      // Найстаріші зверху — випалюються вони першими
-      .sort((a, b) => parseSheetDate(a.mkDate) - parseSheetDate(b.mkDate))
-  }, [pieces, filter, query])
+      // В роботі найстаріші зверху — випалюються вони першими.
+      // В архіві навпаки: шукають зазвичай щось недавнє.
+      .sort((a, b) => archive
+        ? parseSheetDate(b.mkDate) - parseSheetDate(a.mkDate)
+        : parseSheetDate(a.mkDate) - parseSheetDate(b.mkDate))
+  }, [scoped, filter, query])
+
+  // Обмежуємо лише архів: у роботі виробів і так небагато
+  const shown = archive && !query.trim() ? visible.slice(0, ARCHIVE_PAGE) : visible
 
   const toggle = (rowIndex: number) => {
     setSelected((prev) => {
@@ -146,7 +173,7 @@ export default function PiecesScreen({
     })
   }
 
-  const selectAllVisible = () => setSelected(new Set(visible.map((p) => p.rowIndex)))
+  const selectAllVisible = () => setSelected(new Set(shown.map((p) => p.rowIndex)))
   const clearSelection = () => setSelected(new Set())
 
   const uploadPhoto = async (piece: Piece, file: File) => {
@@ -245,7 +272,11 @@ export default function PiecesScreen({
 
       {!loading && visible.length > 0 && (
         <div className={styles.selectBar}>
-          <span>Показано {visible.length}</span>
+          <span>
+            {shown.length < visible.length
+              ? `Показано ${shown.length} з ${visible.length} — знайдіть потрібний пошуком`
+              : `Показано ${visible.length}`}
+          </span>
           <button className={styles.linkBtn} onClick={selected.size ? clearSelection : selectAllVisible}>
             {selected.size ? 'Зняти виділення' : 'Обрати всі'}
           </button>
@@ -258,7 +289,7 @@ export default function PiecesScreen({
       )}
 
       <div className={styles.list}>
-        {visible.map((piece) => {
+        {shown.map((piece) => {
           const isSelected = selected.has(piece.rowIndex)
           const age = daysSince(piece.mkDate)
           return (
