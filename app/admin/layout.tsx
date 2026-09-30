@@ -1,9 +1,9 @@
 import AppShell from '@/components/AppShell'
-import { getSession } from '@/lib/session'
+import { requirePage } from '@/lib/session'
 import { navFor } from '@/lib/nav'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession()
+  const session = await requirePage()
 
   return (
     <AppShell

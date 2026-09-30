@@ -1,10 +1,10 @@
 import AppShell from '@/components/AppShell'
-import { getSession } from '@/lib/session'
+import { requirePage } from '@/lib/session'
 import { navFor } from '@/lib/nav'
 import { STUDIOS } from '@/lib/studios'
 
 export default async function MasterLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession()
+  const session = await requirePage()
   const studio = session?.studio ? STUDIOS[session.studio] : null
 
   return (

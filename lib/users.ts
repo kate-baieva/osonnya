@@ -1,6 +1,12 @@
-import { getSheetsClient } from './google-sheets'
+import { createHash } from 'crypto'
+import { getSheetsClient, readValues } from './google-sheets'
 import { hashPassword, verifyPassword } from './password'
-import type { Role } from './auth'
+import type { Role, Session } from './auth'
+
+// Відбиток — щоб сесія знала, чи не змінився пароль відтоді, як її видали
+function fingerprint(secret: string): string {
+  return createHash('sha256').update(secret).digest('hex').slice(0, 12)
+}
 
 // Аркуш «Users» живе в основній таблиці (Суми) — користувачі спільні для обох студій.
 const SHEET = 'Users'
@@ -65,12 +71,7 @@ function rowToUser(row: string[], rowIndex: number): User | null {
 
 export async function listUsers(): Promise<User[]> {
   await ensureSheet()
-  const sheets = getSheetsClient()
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: mainSpreadsheetId(),
-    range: `${SHEET}!A${DATA_ROW}:G`,
-  })
-  const rows = (res.data.values ?? []) as string[][]
+  const rows = await readValues(mainSpreadsheetId(), `${SHEET}!A${DATA_ROW}:G`)
   return rows
     .map((row, i) => rowToUser(row, DATA_ROW + i))
     .filter((u): u is User => u !== null)
@@ -131,6 +132,7 @@ export interface AuthenticatedUser {
   name: string
   role: Role
   studio: string | null
+  fp: string
 }
 
 // Перший вхід: поки в таблиці нікого немає, працює обліковий запис із змінних оточення.
@@ -139,7 +141,10 @@ function bootstrapUser(login: string, password: string): AuthenticatedUser | nul
   const bootPassword = process.env.ADMIN_PASSWORD ?? ''
   if (!bootLogin || !bootPassword) return null
   if (login !== bootLogin || password !== bootPassword) return null
-  return { login: bootLogin, name: 'Адміністратор', role: 'admin', studio: null }
+  return {
+    login: bootLogin, name: 'Адміністратор', role: 'admin', studio: null,
+    fp: fingerprint(bootPassword),
+  }
 }
 
 export async function authenticate(
@@ -154,5 +159,36 @@ export async function authenticate(
   if (!user.active || !user.passwordHash) return null
   if (!(await verifyPassword(password, user.passwordHash))) return null
 
-  return { login: user.login, name: user.name, role: user.role, studio: user.studio }
+  return {
+    login: user.login, name: user.name, role: user.role, studio: user.studio,
+    fp: fingerprint(user.passwordHash),
+  }
+}
+
+// Чи діє сесія просто зараз: користувача могли вимкнути, видалити
+// або перевипустити йому пароль уже після того, як він увійшов.
+export async function sessionStillValid(session: Session): Promise<boolean> {
+  const bootLogin = (process.env.ADMIN_LOGIN ?? '').trim().toLowerCase()
+  const bootPassword = process.env.ADMIN_PASSWORD ?? ''
+
+  let users: User[]
+  try {
+    users = await listUsers()
+  } catch {
+    // Таблиця недоступна — не виганяємо всіх, бо це збій на нашому боці
+    return true
+  }
+
+  const user = users.find((u) => u.login === session.login)
+  if (!user) {
+    // Обліковий запис із змінних оточення живе, поки в таблиці нікого немає
+    if (bootLogin && session.login === bootLogin && bootPassword) {
+      return !session.fp || session.fp === fingerprint(bootPassword)
+    }
+    return false
+  }
+
+  if (!user.active || !user.passwordHash) return false
+  // Старі сесії без відбитка не рвемо — вони зникнуть самі за строком
+  return !session.fp || session.fp === fingerprint(user.passwordHash)
 }

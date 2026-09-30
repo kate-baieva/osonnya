@@ -9,6 +9,9 @@ export interface Session {
   role: Role
   studio: string | null // 'sumy' | 'if'; null — доступ до обох (адміністратор)
   exp: number
+  // Короткий відбиток пароля. Змінили пароль або вимкнули доступ —
+  // відбиток перестає збігатися, і стара сесія помирає, не чекаючи 30 днів.
+  fp?: string
 }
 
 export const SESSION_COOKIE = 'osonnya_session'
