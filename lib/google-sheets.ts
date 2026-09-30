@@ -667,6 +667,7 @@ export async function createCertificateRecord(
     mkType: string   // назва формату МК
     price: number
     certCode: string
+    kind?: string // «паперовий» / «електронний» — щоб знати, за ким чекати
   },
   spreadsheetId?: string,
 ): Promise<void> {
@@ -687,7 +688,7 @@ export async function createCertificateRecord(
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: sid,
-    range: `${config.sheets.certificates}!A${nextRow}:J${nextRow}`,
+    range: `${config.sheets.certificates}!A${nextRow}:M${nextRow}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
@@ -701,6 +702,9 @@ export async function createCertificateRecord(
         orderDate,              // H: Payment Date
         'WayForPay',            // I: Payment Account
         false,                  // J: Utilized? = FALSE
+        '',                     // K: Expired [auto]
+        '',                     // L: Column 1
+        data.kind ?? '',        // M: Тип
       ]],
     },
   })

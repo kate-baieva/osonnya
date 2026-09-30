@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
               mkType,
               price: certPrice,
               certCode,
+              kind: orderData.ct === 'p' ? 'паперовий' : 'електронний',
             }, spreadsheetId)
             console.log(`[webhook/wayforpay] ✅ сертифікат створено: ${certCode}`)
 

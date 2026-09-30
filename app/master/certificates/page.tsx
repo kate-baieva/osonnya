@@ -1,6 +1,11 @@
+import CertificatesScreen from '@/components/CertificatesScreen'
+import { getSession } from '@/lib/session'
 import ui from '@/components/ui.module.css'
 
-export default function MasterCertificatesPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function MasterCertificatesPage() {
+  const session = await getSession()
   return (
     <>
       <div className={ui.pageHead}>
@@ -9,10 +14,7 @@ export default function MasterCertificatesPage() {
           <p className={ui.sub}>Видати в студії або віддати вже оплачений паперовий.</p>
         </div>
       </div>
-      <div className={ui.hint}>
-        <b>Наступний крок розробки</b>
-        Тут зʼявиться список тих, хто має зайти за паперовим сертифікатом, і форма продажу в студії.
-      </div>
+      <CertificatesScreen studioId={session?.studio ?? 'sumy'} canSwitchStudio={false} />
     </>
   )
 }
