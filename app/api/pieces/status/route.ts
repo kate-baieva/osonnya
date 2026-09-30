@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const changes: StatusChange[] = rowIndexes.map((rowIndex) => ({ rowIndex, status, comment }))
 
   try {
-    await updateStatuses(studioId, changes)
+    await updateStatuses(studioId, changes, session.name)
     return NextResponse.json({ updated: changes.length })
   } catch (error) {
     console.error('[api/pieces/status]', error)

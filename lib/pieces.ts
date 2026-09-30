@@ -153,6 +153,7 @@ export async function setPhoto(
   studioId: string,
   rowIndex: number,
   url: string,
+  actor?: string,
 ): Promise<void> {
   const spreadsheetId = getSpreadsheetId(studioId)
   const map = await ensureColumns(spreadsheetId)
@@ -165,10 +166,20 @@ export async function setPhoto(
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[url]] },
   })
+
+  if (actor) {
+    const piece = (await getPieces(studioId)).find((p) => p.rowIndex === rowIndex)
+    const { log } = await import('./piece-log')
+    await log(studioId, [{ number: piece?.number ?? '', event: 'Фото додано', who: actor }])
+  }
 }
 
 // Масова зміна статусів — одним запитом, щоб не впертись у ліміти API.
-export async function updateStatuses(studioId: string, changes: StatusChange[]): Promise<void> {
+export async function updateStatuses(
+  studioId: string,
+  changes: StatusChange[],
+  actor?: string,
+): Promise<void> {
   if (changes.length === 0) return
 
   const spreadsheetId = getSpreadsheetId(studioId)
@@ -199,6 +210,20 @@ export async function updateStatuses(studioId: string, changes: StatusChange[]):
   })
 
   await archiveCollectedPhotos(studioId, changes)
+
+  // Історія пишеться після збереження: у «Pieces» лишається лише поточний
+  // статус, і без журналу попередній стан уже не відновити
+  if (actor) {
+    const byRow = new Map((await getPieces(studioId)).map((p) => [p.rowIndex, p]))
+    const { log } = await import('./piece-log')
+    await log(studioId, changes.map((change) => ({
+      number: byRow.get(change.rowIndex)?.number ?? '',
+      event: `Статус «${change.status}»`,
+      status: change.status,
+      who: actor,
+      comment: change.comment,
+    })))
+  }
 }
 
 // Виріб забрали — фото переїжджає в підпапку «Віддали».
@@ -264,6 +289,15 @@ export async function addPiece(
   const rowIndex = await insertRowAfterData(
     spreadsheetId, SHEET, DATA_ROW, columnLetter(map.number ?? 0), row,
   )
+
+  const { log } = await import('./piece-log')
+  await log(studioId, [{
+    number,
+    event: 'Створений на майстер-класі',
+    status: piece.status,
+    who: piece.master,
+  }])
+
   return { rowIndex, number }
 }
 

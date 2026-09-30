@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const fileId = await uploadPiecePhoto(studioId, piece.number, buffer, mimeType)
     const url = photoUrl(fileId)
-    await setPhoto(studioId, rowIndex, url)
+    await setPhoto(studioId, rowIndex, url, session.name)
 
     return NextResponse.json({ url, fileId })
   } catch (error) {

@@ -86,6 +86,7 @@ export default function PiecesScreen({
   const [comment, setComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<number | null>(null)
+  const [detail, setDetail] = useState<Piece | null>(null)
 
   const load = useMemo(() => async (studioId: string) => {
     setLoading(true)
@@ -199,6 +200,13 @@ export default function PiecesScreen({
 
   return (
     <div className={styles.wrap}>
+      {detail && (
+        <PieceCard
+          piece={detail}
+          studio={studio}
+          onClose={() => setDetail(null)}
+        />
+      )}
       {canSwitchStudio && (
         <div className={styles.studioTabs}>
           {STUDIO_LIST.map((s) => (
@@ -257,7 +265,7 @@ export default function PiecesScreen({
             <div
               key={piece.rowIndex}
               className={`${styles.row} ${isSelected ? styles.rowSelected : ''}`}
-              onClick={() => toggle(piece.rowIndex)}
+              onClick={() => setDetail(piece)}
             >
               <input
                 type="checkbox"
@@ -346,6 +354,99 @@ export default function PiecesScreen({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+interface LogEntry {
+  when: string
+  event: string
+  status: string
+  who: string
+  comment: string
+}
+
+function PieceCard({
+  piece,
+  studio,
+  onClose,
+}: {
+  piece: Piece
+  studio: string
+  onClose: () => void
+}) {
+  const [history, setHistory] = useState<LogEntry[] | null>(null)
+  const [zoom, setZoom] = useState(false)
+  const src = photoSrc(piece.photoUrl)
+
+  useEffect(() => {
+    fetch(`/api/pieces/log?studio=${studio}&number=${encodeURIComponent(piece.number)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((json) => setHistory(Array.isArray(json) ? json : []))
+      .catch(() => setHistory([]))
+  }, [studio, piece.number])
+
+  return (
+    <div className={styles.cardWrap} onClick={onClose}>
+      <div className={styles.cardBody} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.cardHead}>
+          <h3 className={styles.cardTitle}>Виріб № {piece.number}</h3>
+          <button className={styles.cardClose} onClick={onClose}>×</button>
+        </div>
+
+        {src && (
+          <img
+            src={src}
+            alt=""
+            className={zoom ? styles.cardPhotoBig : styles.cardPhoto}
+            onClick={() => setZoom((v) => !v)}
+            title={zoom ? 'Зменшити' : 'Збільшити'}
+          />
+        )}
+
+        <div className={styles.cardFacts}>
+          <span className={styles.cardKey}>Клієнт</span><span>{piece.client || '—'}</span>
+          <span className={styles.cardKey}>Дата МК</span><span>{formatDate(piece.mkDate)}</span>
+          <span className={styles.cardKey}>Майстриня</span><span>{piece.master || '—'}</span>
+          <span className={styles.cardKey}>Статус</span>
+          <span><span className={`${styles.badge} ${BADGE_CLASS[piece.status] ?? ''}`}>{piece.status}</span></span>
+          {piece.communication && (
+            <>
+              <span className={styles.cardKey}>Клієнта</span><span>{piece.communication}</span>
+            </>
+          )}
+          {piece.comment && (
+            <>
+              <span className={styles.cardKey}>Коментар</span><span>{piece.comment}</span>
+            </>
+          )}
+        </div>
+
+        <h4 className={styles.cardSubtitle}>Історія змін</h4>
+
+        {history === null && <p className={styles.empty}>Завантаження…</p>}
+        {history?.length === 0 && (
+          <p className={styles.empty}>
+            Записів ще немає. Історія ведеться з моменту, коли застосунок почав
+            фіксувати зміни — те, що міняли в таблиці руками, сюди не потрапило.
+          </p>
+        )}
+
+        {history && history.length > 0 && (
+          <div className={styles.timeline}>
+            {history.map((entry, i) => (
+              <div key={i} className={styles.tlItem}>
+                <span className={styles.tlDot} />
+                <div className={styles.tlBody}>
+                  <span className={styles.tlWhat}>{entry.event}</span>
+                  <span className={styles.tlWhen}>{entry.when} · {entry.who}</span>
+                  {entry.comment && <span className={styles.tlComment}>{entry.comment}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

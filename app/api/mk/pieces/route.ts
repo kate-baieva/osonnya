@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         const fileId = await uploadPiecePhoto(
           studioId, created.number, buffer, photo.type || 'image/jpeg',
         )
-        await setPhoto(studioId, created.rowIndex, photoUrl(fileId))
+        await setPhoto(studioId, created.rowIndex, photoUrl(fileId), session.name)
       } catch (error) {
         console.error('[api/mk/pieces] фото', error)
         photoSaved = false
