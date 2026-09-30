@@ -246,6 +246,45 @@ export async function setAttendance(
   })
 }
 
+// Місця рахуються формулою лише для статусу «booked»,
+// тож скасування — це просто інший статус: місце звільняється саме
+export async function setOrderStatus(
+  studioId: string,
+  rowIndex: number,
+  status: string,
+): Promise<void> {
+  const spreadsheetId = getSpreadsheetId(studioId)
+  const map = await readColumnMap(spreadsheetId)
+  if (map.status === undefined) throw new Error('В аркуші MK Orders немає колонки Status')
+
+  const sheets = getSheetsClient()
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${SHEET}'!${columnLetter(map.status)}${rowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[status]] },
+  })
+}
+
+// Перенесення на інший майстер-клас — зміна дати й часу в самому записі
+export async function moveOrder(
+  studioId: string,
+  rowIndex: number,
+  mkDatetime: string,
+): Promise<void> {
+  const spreadsheetId = getSpreadsheetId(studioId)
+  const map = await readColumnMap(spreadsheetId)
+  if (map.mkDatetime === undefined) throw new Error('В аркуші MK Orders немає колонки MK DateTime')
+
+  const sheets = getSheetsClient()
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${SHEET}'!${columnLetter(map.mkDatetime)}${rowIndex}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[mkDatetime]] },
+  })
+}
+
 export async function setOrderMaster(
   studioId: string,
   rowIndex: number,

@@ -285,6 +285,26 @@ export async function assignMaster(
   await syncEventFor(studioId, item.rowIndex)
 }
 
+// Синхронізує подію за датою й часом майстер-класу.
+// Викликається після запису клієнта, скасування чи перенесення.
+export async function syncEventForSlot(studioId: string, mkDatetime: string): Promise<void> {
+  const { calendarConfigured } = await import('./calendar')
+  if (!calendarConfigured(studioId)) return
+
+  const parsed = parseDatetime(mkDatetime)
+  if (!parsed) return
+
+  try {
+    const spreadsheetId = getSpreadsheetId(studioId)
+    const slots = await readGroupSlots(spreadsheetId)
+    const slot = slots.find((item) => item.date === parsed.date && item.time === parsed.time)
+    if (!slot) return // індивідуальні слотів не мають — там подія створюється інакше
+    await syncEventFor(studioId, slot.rowIndex)
+  } catch (error) {
+    console.warn('[schedule] подію за слотом не синхронізовано:', (error as Error).message)
+  }
+}
+
 // Оновлює подію в календарі за поточним станом рядка
 async function syncEventFor(studioId: string, rowIndex: number): Promise<void> {
   const { calendarConfigured, upsertEvent } = await import('./calendar')
@@ -296,13 +316,21 @@ async function syncEventFor(studioId: string, rowIndex: number): Promise<void> {
     const slot = slots.find((item) => item.rowIndex === rowIndex)
     if (!slot) return
 
+    // Рахуємо записи самі: колонка з формулою перераховується не миттєво,
+    // і подія могла б отримати вчорашнє число
+    const { getOrdersForMk } = await import('./orders')
+    const orders = await getOrdersForMk(studioId, `${slot.date} ${slot.time}`)
+    const booked = orders
+      .filter((order) => order.status === 'booked')
+      .reduce((sum, order) => sum + order.people, 0)
+
     const eventId = await upsertEvent(studioId, {
       type: slot.type,
       title: slot.title,
       date: slot.date,
       time: slot.time,
       capacity: slot.capacity,
-      booked: slot.booked,
+      booked,
       master: slot.master,
     }, slot.eventId || undefined)
 

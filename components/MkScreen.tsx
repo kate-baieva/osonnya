@@ -41,6 +41,8 @@ export default function MkScreen({
   const [error, setError] = useState('')
   const [paying, setPaying] = useState<Order | null>(null)
   const [addingWalkIn, setAddingWalkIn] = useState(false)
+  const [moving, setMoving] = useState<Order | null>(null)
+  const [canManage, setCanManage] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,6 +62,10 @@ export default function MkScreen({
   }, [studioId, mkKey])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    fetch('/api/users').then((r) => setCanManage(r.ok)).catch(() => setCanManage(false))
+  }, [])
 
   const send = async (payload: Record<string, unknown>) => {
     const res = await fetch('/api/mk', {
@@ -141,7 +147,8 @@ export default function MkScreen({
           <div className={styles.list}>
             {orders.map((order) => {
               const attended = order.attended ?? order.people
-              const noShow = attended === 0
+              const cancelled = order.status !== '' && order.status !== 'booked'
+              const noShow = attended === 0 || cancelled
               const changed = order.attended !== null && order.attended !== order.people
 
               return (
@@ -155,6 +162,7 @@ export default function MkScreen({
                     {order.certificate && <span className={styles.note}>сертифікат № {order.certificate}</span>}
                     {order.promo && <span className={styles.note}>промокод {order.promo}</span>}
                     {order.comment === 'Без запису' && <span className={styles.note}>прийшли без запису</span>}
+                    {cancelled && <span className={styles.note}>запис скасовано — місце вільне</span>}
                   </div>
 
                   <div className={styles.attend}>
@@ -206,6 +214,29 @@ export default function MkScreen({
                       + Виріб
                       {piecesOf(order.client).length > 0 && ` (${piecesOf(order.client).length})`}
                     </button>
+                    {canManage && (cancelled ? (
+                      <button
+                        className={`${ui.btn} ${ui.btnSmall}`}
+                        onClick={() => send({
+                          action: 'restore', rowIndex: order.rowIndex, mkDatetime: order.mkDatetime,
+                        })}
+                      >Повернути</button>
+                    ) : (
+                      <>
+                        <button
+                          className={`${ui.btn} ${ui.btnSmall}`}
+                          onClick={() => setMoving(order)}
+                        >Перенести</button>
+                        <button
+                          className={`${ui.btn} ${ui.btnSmall}`}
+                          onClick={() => {
+                            if (confirm(`Скасувати запис «${order.client}»? Місце звільниться.`)) {
+                              send({ action: 'cancel', rowIndex: order.rowIndex, mkDatetime: order.mkDatetime })
+                            }
+                          }}
+                        >Скасувати</button>
+                      </>
+                    ))}
                   </div>
                 </div>
               )
@@ -243,6 +274,21 @@ export default function MkScreen({
             setAddingPieceFor(null)
             if (warning) setError(warning)
             await load()
+          }}
+        />
+      )}
+
+      {moving && (
+        <MoveDialog
+          order={moving}
+          studioId={studioId}
+          onClose={() => setMoving(null)}
+          onMove={async (target) => {
+            const ok = await send({
+              action: 'move', rowIndex: moving.rowIndex,
+              from: moving.mkDatetime, to: target,
+            })
+            if (ok) setMoving(null)
           }}
         />
       )}
@@ -509,6 +555,86 @@ function AddPieceDialog({
           <button className={`${ui.btn} ${ui.btnPrimary}`} disabled={saving} onClick={save}>
             {saving ? 'Зберігаємо…' : 'Створити виріб'}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MoveDialog({
+  order,
+  studioId,
+  onClose,
+  onMove,
+}: {
+  order: Order
+  studioId: string
+  onClose: () => void
+  onMove: (targetDatetime: string) => Promise<void>
+}) {
+  const [options, setOptions] = useState<ScheduleItem[]>([])
+  const [target, setTarget] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/schedule?studio=${studioId}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!Array.isArray(json)) return
+        // Переносити є сенс лише на майбутні МК, і не на той самий
+        const list = (json as ScheduleItem[]).filter((item) =>
+          item.type !== 'kids' && `${item.date} ${item.time}` !== order.mkKey)
+        setOptions(list)
+        if (list[0]) setTarget(list[0].datetime)
+      })
+      .finally(() => setLoading(false))
+  }, [studioId, order.mkKey])
+
+  return (
+    <div className={styles.modalWrap}>
+      <div className={styles.modalBack} onClick={onClose} />
+      <div className={styles.modalCard}>
+        <div className={styles.modalHead}>
+          <h3 className={styles.modalTitle}>Перенести запис</h3>
+          <button className={styles.modalClose} onClick={onClose}>×</button>
+        </div>
+        <p className={ui.cardDesc}>
+          {order.client} · {order.people} {order.people === 1 ? 'особа' : 'осіб'}
+        </p>
+
+        {loading && <p className={ui.empty}>Завантаження…</p>}
+        {!loading && options.length === 0 && (
+          <p className={ui.empty}>Немає інших майстер-класів попереду</p>
+        )}
+
+        {options.length > 0 && (
+          <div className={ui.field}>
+            <label className={ui.label}>Куди перенести</label>
+            <select className={ui.selectInput} value={target} onChange={(e) => setTarget(e.target.value)}>
+              {options.map((item) => (
+                <option key={item.id} value={item.datetime}>
+                  {formatDay(item.date)}, {item.time}
+                  {item.capacity > 0 ? ` · ${item.booked} з ${item.capacity}` : ''}
+                  {item.title ? ` · ${item.title}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className={ui.hint}>
+          <b>Що зміниться</b>
+          Дата в записі, кількість місць на обох майстер-класах і обидві події в календарі.
+        </div>
+
+        <div className={styles.modalFoot}>
+          <button className={ui.btn} onClick={onClose}>Скасувати</button>
+          <button
+            className={`${ui.btn} ${ui.btnPrimary}`}
+            disabled={saving || !target}
+            onClick={async () => { setSaving(true); await onMove(target); setSaving(false) }}
+          >{saving ? 'Переносимо…' : 'Перенести'}</button>
         </div>
       </div>
     </div>

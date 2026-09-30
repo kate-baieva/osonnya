@@ -64,24 +64,6 @@ async function copyRowDataValidation(
   })
 }
 
-// Перемикає чекбокс M1 в аркуші MK Orders (FALSE → TRUE),
-// щоб тригернути синхронізацію з Google Calendar
-async function triggerCalendarSync(spreadsheetId: string): Promise<void> {
-  const sheets = getSheets()
-  const range = `${config.sheets.orders}!M1`
-  // Спочатку FALSE, потім TRUE — гарантує зміну значення і тригер onChange
-  await sheets.spreadsheets.values.update({
-    spreadsheetId, range,
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [[false]] },
-  })
-  await sheets.spreadsheets.values.update({
-    spreadsheetId, range,
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [[true]] },
-  })
-}
-
 // Підтримує формати:
 //   "2/15/2025 15:30:00"  (Google Sheets M/D/YYYY)
 //   "2025-02-15 15:30:00" (ISO-like)
@@ -402,13 +384,13 @@ export async function appendOrder(
     console.warn('[appendOrder] не вдалось скопіювати data validation:', err)
   }
 
-  // ── Тригер синхронізації з Google Calendar для індивідуальних МК ─────────
-  if (data.mkType === 'individual') {
-    try {
-      await triggerCalendarSync(sid)
-    } catch (err) {
-      console.warn('[appendOrder] не вдалось тригернути calendar sync:', err)
-    }
+  // ── Оновлюємо подію в календарі: кількість записів мала змінитись ────────
+  try {
+    const studioId = sid === process.env.GOOGLE_SPREADSHEET_ID_IF ? 'if' : 'sumy'
+    const { syncEventForSlot } = await import('./schedule')
+    await syncEventForSlot(studioId, data.mkDatetime)
+  } catch (err) {
+    console.warn('[appendOrder] подію в календарі не оновлено:', err)
   }
 
   return nextRow

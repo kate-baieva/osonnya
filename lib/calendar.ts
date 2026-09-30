@@ -7,12 +7,20 @@ import type { MkType } from './schedule'
 
 const TIMEZONE = 'Europe/Kyiv'
 
-// Тривалості взяті з подій, які створювала стара надбудова,
-// щоб календар не почав виглядати інакше після переходу
-const DURATION_MINUTES: Record<MkType, number> = {
-  group: 150,
-  indiv: 150,
-  kids: 60,
+// Тривалості зі слів студії. Індивідуальний залежить від кількості:
+// парний іде як груповий, а від трьох учасників — довший.
+const GROUP_MINUTES = 150
+const PAIR_MINUTES = 150
+const INDIVIDUAL_MINUTES = 180
+const KIDS_MINUTES = 90
+
+function durationFor(input: CalendarEventInput): number {
+  if (input.type === 'kids') return KIDS_MINUTES
+  if (input.type === 'indiv') {
+    const people = input.capacity || input.booked
+    return people >= 3 ? INDIVIDUAL_MINUTES : PAIR_MINUTES
+  }
+  return GROUP_MINUTES
 }
 
 const CALENDAR_IDS: Record<string, string | undefined> = {
@@ -63,7 +71,7 @@ function summaryFor(input: CalendarEventInput): string {
 }
 
 function buildEvent(input: CalendarEventInput) {
-  const duration = input.durationMinutes ?? DURATION_MINUTES[input.type]
+  const duration = input.durationMinutes ?? durationFor(input)
   const start = new Date(`${input.date}T${input.time}:00`)
   const end = new Date(start.getTime() + duration * 60000)
   const iso = (d: Date) => {
@@ -87,16 +95,23 @@ function buildEvent(input: CalendarEventInput) {
 }
 
 // Створює подію або оновлює наявну. Повертає id події.
+// У таблиці id події записаний як iCalUID — з хвостом «@google.com».
+// API приймає лише частину до собаки, інакше події почнуть двоїтися.
+function normalizeEventId(value: string): string {
+  return String(value ?? '').trim().split('@')[0]
+}
+
 export async function upsertEvent(
   studioId: string,
   input: CalendarEventInput,
-  eventId?: string,
+  rawEventId?: string,
 ): Promise<string | null> {
   const calendarId = CALENDAR_IDS[studioId]
   if (!calendarId) return null
 
   const calendar = getCalendar()
   const requestBody = buildEvent(input)
+  const eventId = rawEventId ? normalizeEventId(rawEventId) : ''
 
   if (eventId) {
     try {
@@ -112,8 +127,9 @@ export async function upsertEvent(
   return created.data.id ?? null
 }
 
-export async function deleteEvent(studioId: string, eventId: string): Promise<void> {
+export async function deleteEvent(studioId: string, rawEventId: string): Promise<void> {
   const calendarId = CALENDAR_IDS[studioId]
+  const eventId = normalizeEventId(rawEventId)
   if (!calendarId || !eventId) return
 
   try {

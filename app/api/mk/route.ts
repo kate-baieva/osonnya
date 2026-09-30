@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
-import { addPayment, addWalkIn, getOrdersForMk, setAttendance } from '@/lib/orders'
-import { getSchedule } from '@/lib/schedule'
+import {
+  addPayment, addWalkIn, getOrdersForMk, moveOrder, setAttendance, setOrderStatus,
+} from '@/lib/orders'
+import { getSchedule, syncEventForSlot } from '@/lib/schedule'
 import { getPiecesForMk } from '@/lib/pieces'
 import { STUDIOS } from '@/lib/studios'
 
@@ -106,6 +108,41 @@ export async function POST(request: Request) {
         certificate: String(body.certificate ?? '') || undefined,
         promo: String(body.promo ?? '') || undefined,
       })
+      return NextResponse.json({ ok: true })
+    }
+
+    if (action === 'cancel' || action === 'restore') {
+      if (resolved.session.role !== 'admin') {
+        return NextResponse.json({ error: 'Скасовувати записи може адміністратор' }, { status: 403 })
+      }
+      const rowIndex = Number(body.rowIndex)
+      const mkDatetime = String(body.mkDatetime ?? '')
+      if (!Number.isInteger(rowIndex) || rowIndex < 2) {
+        return NextResponse.json({ error: 'Невідомий запис' }, { status: 400 })
+      }
+
+      // Місця рахуються лише для статусу «booked» — інший статус звільняє місце
+      await setOrderStatus(studioId, rowIndex, action === 'cancel' ? 'cancelled' : 'booked')
+      if (mkDatetime) await syncEventForSlot(studioId, mkDatetime)
+      return NextResponse.json({ ok: true })
+    }
+
+    if (action === 'move') {
+      if (resolved.session.role !== 'admin') {
+        return NextResponse.json({ error: 'Переносити записи може адміністратор' }, { status: 403 })
+      }
+      const rowIndex = Number(body.rowIndex)
+      const from = String(body.from ?? '')
+      const to = String(body.to ?? '')
+      if (!Number.isInteger(rowIndex) || rowIndex < 2) {
+        return NextResponse.json({ error: 'Невідомий запис' }, { status: 400 })
+      }
+      if (!to) return NextResponse.json({ error: 'Оберіть майстер-клас' }, { status: 400 })
+
+      await moveOrder(studioId, rowIndex, to)
+      // Оновлюємо обидві події: і ту, звідки пішли, і ту, куди перенесли
+      if (from) await syncEventForSlot(studioId, from)
+      await syncEventForSlot(studioId, to)
       return NextResponse.json({ ok: true })
     }
 
