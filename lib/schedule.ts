@@ -14,9 +14,15 @@ const RESERVED_DATA_ROW = 2
 
 export type MkType = 'group' | 'indiv' | 'kids'
 
+// Звідки взявся рядок — і, відповідно, куди писати майстриню:
+//   group      — аркуш «Group MKs», колонка «Майстриня»
+//   reserved   — аркуш «Резерв часу», колонка D
+//   individual — аркуш «MK Orders», усі рядки цього МК
+export type ScheduleSource = 'group' | 'reserved' | 'individual'
+
 export interface ScheduleItem {
   id: string
-  source: 'group' | 'reserved'
+  source: ScheduleSource
   rowIndex: number
   datetime: string // сире значення з таблиці
   date: string     // YYYY-MM-DD
@@ -190,7 +196,9 @@ async function readIndividual(studioId: string): Promise<ScheduleItem[]> {
     const [date, time] = key.split(' ')
     return {
       id: `indiv-${key}`,
-      source: 'group' as const, // майстриня зберігається в рядку замовлення
+      // Не 'group': рядок належить «MK Orders», і його номер у «Group MKs»
+      // вказує на зовсім інший майстер-клас або на порожнечу під даними
+      source: 'individual' as const,
       rowIndex: value.rowIndex,
       datetime: value.raw,
       date,
@@ -240,11 +248,17 @@ export async function getSchedule(
 
 export async function assignMaster(
   studioId: string,
-  item: { source: 'group' | 'reserved'; rowIndex: number },
+  item: { source: ScheduleSource; rowIndex: number },
   master: string,
 ): Promise<void> {
   const spreadsheetId = getSpreadsheetId(studioId)
   const sheets = getSheetsClient()
+
+  if (item.source === 'individual') {
+    const { setMkMaster } = await import('./orders')
+    await setMkMaster(studioId, item.rowIndex, master)
+    return
+  }
 
   if (item.source === 'reserved') {
     await sheets.spreadsheets.values.update({

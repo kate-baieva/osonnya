@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
-import { addScheduleEntry, assignMaster, getSchedule, type MkType } from '@/lib/schedule'
+import {
+  addScheduleEntry, assignMaster, getSchedule,
+  type MkType, type ScheduleSource,
+} from '@/lib/schedule'
 import { STUDIOS } from '@/lib/studios'
 
 const TYPES: MkType[] = ['group', 'indiv', 'kids']
+const SOURCES: ScheduleSource[] = ['group', 'reserved', 'individual']
 
 async function resolveStudio(request: Request, bodyStudio?: string) {
   const session = await getSession()
@@ -94,7 +98,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Немає доступу' }, { status: 403 })
   }
 
-  const source = body.source === 'reserved' ? 'reserved' : 'group'
+  // Раніше тут будь-що незнайоме ставало 'group', і майстриня
+  // індивідуального МК ішла в чужий аркуш за номером рядка. Тепер
+  // незнайоме джерело — помилка, а не припущення.
+  const source = SOURCES.find((value) => value === body.source)
+  if (!source) {
+    return NextResponse.json({ error: 'Невідоме джерело рядка' }, { status: 400 })
+  }
+
   const rowIndex = Number(body.rowIndex)
   if (!Number.isInteger(rowIndex) || rowIndex < 2) {
     return NextResponse.json({ error: 'Невідомий рядок' }, { status: 400 })

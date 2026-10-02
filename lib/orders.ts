@@ -276,22 +276,39 @@ export async function moveOrder(
   })
 }
 
-export async function setOrderMaster(
+// Призначає майстриню індивідуальному МК. Свого аркуша в індивідуальних немає:
+// один майстер-клас — це кілька рядків «MK Orders» з однаковою датою й часом.
+// Майстриня належить майстер-класу, а не окремому замовленню, тож пишемо її в
+// усі рядки цього МК — інакше розклад підхопить її лише з того рядка, який
+// трапився першим, а решта лишиться порожньою.
+// Повертає, скільком рядкам вона дісталась.
+export async function setMkMaster(
   studioId: string,
   rowIndex: number,
   master: string,
-): Promise<void> {
+): Promise<number> {
   const spreadsheetId = getSpreadsheetId(studioId)
   const map = await readColumnMap(spreadsheetId)
   if (map.master === undefined) throw new Error('В аркуші MK Orders немає колонки «Майстриня»')
 
-  const sheets = getSheetsClient()
-  await sheets.spreadsheets.values.update({
+  const orders = await getOrders(studioId)
+  const target = orders.find((order) => order.rowIndex === rowIndex)
+  if (!target) throw new Error(`В аркуші MK Orders немає рядка ${rowIndex}`)
+
+  const rows = orders
+    .filter((order) => order.mkKey === target.mkKey
+      && normalize(order.type) === normalize(target.type))
+    .map((order) => order.rowIndex)
+
+  const column = columnLetter(map.master)
+  await getSheetsClient().spreadsheets.values.batchUpdate({
     spreadsheetId,
-    range: `'${SHEET}'!${columnLetter(map.master)}${rowIndex}`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [[master]] },
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: rows.map((row) => ({ range: `'${SHEET}'!${column}${row}`, values: [[master]] })),
+    },
   })
+  return rows.length
 }
 
 export interface WalkIn {
