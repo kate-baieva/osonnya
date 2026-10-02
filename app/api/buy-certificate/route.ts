@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createInvoice, encodeOrderData } from '@/lib/wayforpay'
 import { createCertificateRecord, findOrCreateClient, getAllMkPrices, getNextCertNumber } from '@/lib/google-sheets'
 import { resolveCertificatePrice } from '@/lib/pricing'
+import { MK_TYPE_GROUP, MK_TYPE_INDIVIDUAL } from '@/lib/mk-type'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
 import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
         buyerPhone: phone,
         buyerInstagram: instagram,
         peopleCount,
-        mkType: mkLabel,
+        mkType: isGroup ? MK_TYPE_GROUP : MK_TYPE_INDIVIDUAL,
         price,
         certCode,
       }, spreadsheetId)

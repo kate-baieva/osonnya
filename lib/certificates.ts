@@ -1,5 +1,6 @@
 import { getSheetsClient, readValues } from './google-sheets'
 import { getSpreadsheetId } from './studios'
+import { sheetMkType } from './mk-type'
 import { insertRowAfterData } from './sheet-rows'
 
 // Аркуш «Certificate Orders»: заголовки в рядку 6, дані з рядка 7.
@@ -204,7 +205,9 @@ export async function sellCertificate(
   put('amount', data.amount)
   put('people', data.people)
   put('dueDate', dueDate)
-  put('mkType', data.mkType)
+  // Колонка «MK Type» — строгий список group/individual, а сюди приходить
+  // назва формату з аркуша «Prices» («Індивідуальний МК на 4 людини»)
+  put('mkType', sheetMkType(data.mkType))
   put('number', number)
   put('paymentDate', stamp)
   put('account', data.account)

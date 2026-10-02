@@ -15,6 +15,7 @@ import {
   readPendingOrder,
   redeemPromo,
 } from '@/lib/google-sheets'
+import { MK_TYPE_GROUP, MK_TYPE_INDIVIDUAL } from '@/lib/mk-type'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
 import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio } from '@/lib/studios'
@@ -113,9 +114,11 @@ export async function POST(req: NextRequest) {
           } else {
             // Формат: tp='cpg' → груповий; інакше 2 особи → парний; решта → індивідуальний
             const isGroup = tp === 'cpg'
-            const mkType = isGroup ? 'group' : orderData.c === 2 ? 'pair' : 'individual'
+            // Для таблиці парний — це individual: у списку колонки «MK Type»
+            // є лише group і individual. Для листа назва лишається повною.
+            const mkType = isGroup ? MK_TYPE_GROUP : MK_TYPE_INDIVIDUAL
             const mkTypeLabel = isGroup ? `Груповий МК (${orderData.c} учасн.)`
-              : mkType === 'pair' ? 'Парний МК'
+              : orderData.c === 2 ? 'Парний МК'
               : `Індивідуальний МК (${orderData.c} учасн.)`
             const certPrice = orderData.amt ?? paidAmount
 

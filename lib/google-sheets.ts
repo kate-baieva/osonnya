@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import crypto from 'crypto'
 import { config } from './config'
+import { sheetMkType } from './mk-type'
 import type { Slot } from '@/types'
 
 function getAuth() {
@@ -664,7 +665,7 @@ export async function createCertificateRecord(
     buyerPhone: string
     buyerInstagram: string
     peopleCount: number
-    mkType: string   // назва формату МК
+    mkType: string   // назва формату МК або значення списку; нормалізується нижче
     price: number
     certCode: string
     kind?: string // «паперовий» / «електронний» — щоб знати, за ким чекати
@@ -697,7 +698,7 @@ export async function createCertificateRecord(
         data.price,             // C: Amount
         data.peopleCount,       // D: # of People
         expiresStr,             // E: Due Date (MM/DD/YYYY)
-        data.mkType,            // F: MK Type
+        sheetMkType(data.mkType), // F: MK Type — строгий список group/individual
         data.certCode,          // G: Number
         orderDate,              // H: Payment Date
         'WayForPay',            // I: Payment Account
