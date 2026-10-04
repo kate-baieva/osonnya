@@ -286,7 +286,7 @@ export default function MkScreen({
           onMove={async (target) => {
             const ok = await send({
               action: 'move', rowIndex: moving.rowIndex,
-              from: moving.mkDatetime, to: target,
+              from: moving.mkDatetime, ...target,
             })
             if (ok) setMoving(null)
           }}
@@ -561,6 +561,10 @@ function AddPieceDialog({
   )
 }
 
+// Переносять по-різному, залежно від того, на що людина записана.
+// Груповий запис — лише на наявний слот: місця рахує формула в «Group MKs»
+// по рядку слота, тож запис на дату без слота просто випав би з підрахунку.
+// Індивідуальний МК слота не має взагалі — там довільні дата й час.
 function MoveDialog({
   order,
   studioId,
@@ -570,14 +574,20 @@ function MoveDialog({
   order: Order
   studioId: string
   onClose: () => void
-  onMove: (targetDatetime: string) => Promise<void>
+  onMove: (target: { to?: string; date?: string; time?: string }) => Promise<void>
 }) {
+  const individual = order.type.trim().toLowerCase() === 'individual'
+  const [curDate, curTime] = order.mkKey.split(' ')
+
   const [options, setOptions] = useState<ScheduleItem[]>([])
   const [target, setTarget] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [date, setDate] = useState(curDate ?? '')
+  const [time, setTime] = useState(curTime ?? '')
+  const [loading, setLoading] = useState(!individual)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    if (individual) return
     fetch(`/api/schedule?studio=${studioId}`)
       .then((r) => r.json())
       .then((json) => {
@@ -589,7 +599,10 @@ function MoveDialog({
         if (list[0]) setTarget(list[0].datetime)
       })
       .finally(() => setLoading(false))
-  }, [studioId, order.mkKey])
+  }, [individual, studioId, order.mkKey])
+
+  const changed = date !== curDate || time !== curTime
+  const canSave = individual ? Boolean(date && time && changed) : Boolean(target)
 
   return (
     <div className={styles.modalWrap}>
@@ -603,37 +616,60 @@ function MoveDialog({
           {order.client} · {order.people} {order.people === 1 ? 'особа' : 'осіб'}
         </p>
 
-        {loading && <p className={ui.empty}>Завантаження…</p>}
-        {!loading && options.length === 0 && (
-          <p className={ui.empty}>Немає інших майстер-класів попереду</p>
-        )}
+        {individual ? (
+          <>
+            <div className={ui.field}>
+              <label className={ui.label}>Нова дата</label>
+              <input className={ui.input} type="date" value={date}
+                onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className={ui.field}>
+              <label className={ui.label}>Новий час</label>
+              <input className={ui.input} type="time" value={time}
+                onChange={(e) => setTime(e.target.value)} />
+            </div>
+          </>
+        ) : (
+          <>
+            {loading && <p className={ui.empty}>Завантаження…</p>}
+            {!loading && options.length === 0 && (
+              <p className={ui.empty}>Немає інших майстер-класів попереду</p>
+            )}
 
-        {options.length > 0 && (
-          <div className={ui.field}>
-            <label className={ui.label}>Куди перенести</label>
-            <select className={ui.selectInput} value={target} onChange={(e) => setTarget(e.target.value)}>
-              {options.map((item) => (
-                <option key={item.id} value={item.datetime}>
-                  {formatDay(item.date)}, {item.time}
-                  {item.capacity > 0 ? ` · ${item.booked} з ${item.capacity}` : ''}
-                  {item.title ? ` · ${item.title}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+            {options.length > 0 && (
+              <div className={ui.field}>
+                <label className={ui.label}>Куди перенести</label>
+                <select className={ui.selectInput} value={target} onChange={(e) => setTarget(e.target.value)}>
+                  {options.map((item) => (
+                    <option key={item.id} value={item.datetime}>
+                      {formatDay(item.date)}, {item.time}
+                      {item.capacity > 0 ? ` · ${item.booked} з ${item.capacity}` : ''}
+                      {item.title ? ` · ${item.title}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </>
         )}
 
         <div className={ui.hint}>
           <b>Що зміниться</b>
-          Дата в записі, кількість місць на обох майстер-класах і обидві події в календарі.
+          {individual
+            ? 'Дата й час у цьому записі. Подію в календарі для індивідуального МК доведеться поправити вручну.'
+            : 'Дата в записі, кількість місць на обох майстер-класах і обидві події в календарі.'}
         </div>
 
         <div className={styles.modalFoot}>
           <button className={ui.btn} onClick={onClose}>Скасувати</button>
           <button
             className={`${ui.btn} ${ui.btnPrimary}`}
-            disabled={saving || !target}
-            onClick={async () => { setSaving(true); await onMove(target); setSaving(false) }}
+            disabled={saving || !canSave}
+            onClick={async () => {
+              setSaving(true)
+              await onMove(individual ? { date, time } : { to: target })
+              setSaving(false)
+            }}
           >{saving ? 'Переносимо…' : 'Перенести'}</button>
         </div>
       </div>

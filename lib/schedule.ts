@@ -368,7 +368,7 @@ export interface NewScheduleEntry {
   time: string // HH:MM
 }
 
-function toSheetDatetime(date: string, time: string): string {
+export function toSheetDatetime(date: string, time: string): string {
   const [y, m, d] = date.split('-')
   return `${Number(m)}/${Number(d)}/${y} ${time}:00`
 }

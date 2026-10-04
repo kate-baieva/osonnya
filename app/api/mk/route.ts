@@ -3,7 +3,7 @@ import { getSession } from '@/lib/session'
 import {
   addPayment, addWalkIn, getOrdersForMk, moveOrder, setAttendance, setOrderStatus,
 } from '@/lib/orders'
-import { getSchedule, syncEventForSlot } from '@/lib/schedule'
+import { getSchedule, syncEventForSlot, toSheetDatetime } from '@/lib/schedule'
 import { getPiecesForMk } from '@/lib/pieces'
 import { STUDIOS } from '@/lib/studios'
 
@@ -133,11 +133,23 @@ export async function POST(request: Request) {
       }
       const rowIndex = Number(body.rowIndex)
       const from = String(body.from ?? '')
-      const to = String(body.to ?? '')
       if (!Number.isInteger(rowIndex) || rowIndex < 2) {
         return NextResponse.json({ error: 'Невідомий запис' }, { status: 400 })
       }
-      if (!to) return NextResponse.json({ error: 'Оберіть майстер-клас' }, { status: 400 })
+
+      // Груповий запис переносять на наявний слот — приходить його datetime.
+      // Індивідуальний переносять на нову дату, слота для неї здебільшого
+      // ще немає, тож приходять date і time, а рядок для таблиці складаємо
+      // тут, у тому ж форматі, що й решта записів.
+      let to = String(body.to ?? '')
+      if (!to) {
+        const date = String(body.date ?? '')
+        const time = String(body.time ?? '')
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+          return NextResponse.json({ error: 'Вкажіть дату й час' }, { status: 400 })
+        }
+        to = toSheetDatetime(date, time)
+      }
 
       await moveOrder(studioId, rowIndex, to)
       // Оновлюємо обидві події: і ту, звідки пішли, і ту, куди перенесли
