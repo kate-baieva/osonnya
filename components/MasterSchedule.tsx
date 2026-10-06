@@ -19,6 +19,10 @@ const FALLBACK: Record<MkType, string> = {
 
 const DAY_NAMES = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд']
 
+// Проведених майстер-класів за всю історію — сотні. На головну одразу
+// йдуть лише свіжі: саме їх дооформлюють після заняття. Решта — за кнопкою.
+const RECENT_PAST_DAYS = 30
+
 function normalize(value: string): string {
   return String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
@@ -46,47 +50,109 @@ function formatDay(date: string): string {
   return toDate(date).toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
+// Картка однакова для того, що попереду, і для проведеного — різниця лише
+// в приглушених кольорах і позначці, щоб відкривати можна було так само
+function MkCard({ item, mine, past }: { item: ScheduleItem; mine: boolean; past: boolean }) {
+  return (
+    <a
+      href={`/master/mk?at=${encodeURIComponent(`${item.date} ${item.time}`)}`}
+      className={`${styles.card} ${mine ? styles.cardMine : ''}`
+        + (past ? ` ${styles.cardPast}` : '')}
+    >
+      <span className={styles.when}>
+        <span className={styles.day}>{formatDay(item.date)}</span>
+        <span className={styles.time}>{item.time}</span>
+      </span>
+      <span className={styles.body}>
+        <span className={styles.titleRow}>
+          <span className={styles.name}>{item.title || FALLBACK[item.type]}</span>
+          <span className={`${styles.tag} ${TAG[item.type].className}`}>{TAG[item.type].label}</span>
+          {past && <span className={`${styles.tag} ${styles.tagPast}`}>проведений</span>}
+          {mine && <span className={`${styles.tag} ${styles.tagMine}`}>твій</span>}
+        </span>
+        <span className={styles.meta}>
+          {item.capacity > 0
+            ? `${item.booked} з ${item.capacity} записів`
+            : 'без записів'}
+          {item.master && !mine ? ` · веде ${item.master}` : ''}
+        </span>
+      </span>
+      <span className={styles.open}>Відкрити →</span>
+    </a>
+  )
+}
+
 export default function MasterSchedule({ masterName }: { masterName: string }) {
   const [items, setItems] = useState<ScheduleItem[]>([])
+  const [pastItems, setPastItems] = useState<ScheduleItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [view, setView] = useState<'list' | 'week'>('list')
   const [onlyMine, setOnlyMine] = useState(true)
+  const [showAllPast, setShowAllPast] = useState(false)
   const [monday, setMonday] = useState(() => weekStart(new Date()))
 
   useEffect(() => {
-    fetch('/api/schedule')
-      .then(async (r) => {
-        const json = await r.json()
-        if (!r.ok) { setError(json.error ?? 'Не вдалося завантажити розклад'); return }
-        setItems(json as ScheduleItem[])
+    const load = (url: string) =>
+      fetch(url).then(async (r) => ({ ok: r.ok, json: await r.json() }))
+
+    Promise.all([load('/api/schedule'), load('/api/schedule?past=1')])
+      .then(([upcoming, past]) => {
+        if (!upcoming.ok) {
+          setError(upcoming.json?.error ?? 'Не вдалося завантажити розклад')
+          return
+        }
+        setItems(upcoming.json as ScheduleItem[])
+        // Проведені не критичні: якщо не завантажились, розклад попереду
+        // все одно показуємо, а не падаємо весь блок
+        if (past.ok && Array.isArray(past.json)) setPastItems(past.json as ScheduleItem[])
       })
       .catch(() => setError("Немає з'єднання"))
       .finally(() => setLoading(false))
   }, [])
 
-  const mine = useMemo(
-    () => items.filter((item) => normalize(item.master) === normalize(masterName)),
-    [items, masterName],
-  )
+  const isMine = (item: ScheduleItem) => normalize(item.master) === normalize(masterName)
+
+  const mine = useMemo(() => items.filter(isMine), [items, masterName])
+  const minePast = useMemo(() => pastItems.filter(isMine), [pastItems, masterName])
 
   // Якщо жоден майстер-клас не підписаний на неї, показувати порожньо — знущання:
   // ймовірно, імена в таблиці й у доступі просто трохи різні
-  const nothingAssigned = mine.length === 0 && items.length > 0
-  const visible = onlyMine && !nothingAssigned ? mine : items
+  const nothingAssigned = mine.length === 0 && minePast.length === 0
+    && items.length + pastItems.length > 0
+  const showMine = onlyMine && !nothingAssigned
+
+  const visible = showMine ? mine : items
+  const pastAll = showMine ? minePast : pastItems
+
+  // Проведені приходять із сервера найсвіжішими вперед — так і показуємо
+  const recentCut = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - RECENT_PAST_DAYS)
+    return isoDate(d)
+  }, [])
+  const pastRecent = useMemo(
+    () => pastAll.filter((item) => item.date >= recentCut),
+    [pastAll, recentCut],
+  )
+  const pastList = showAllPast ? pastAll : pastRecent
+  const olderCount = pastAll.length - pastRecent.length
+
+  // У тижневому перегляді межі задає сам тиждень, тож туда беремо все
+  const weekPool = useMemo(() => [...visible, ...pastAll], [visible, pastAll])
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const date = new Date(monday)
       date.setDate(monday.getDate() + i)
       const key = isoDate(date)
-      return { date, key, items: visible.filter((item) => item.date === key) }
+      return { date, key, items: weekPool.filter((item) => item.date === key) }
     })
-  }, [monday, visible])
+  }, [monday, weekPool])
 
   const today = isoDate(new Date())
-
-  const isMine = (item: ScheduleItem) => normalize(item.master) === normalize(masterName)
+  // Межа та сама, що й на сервері: майстер-клас сьогодні — ще не проведений
+  const isPast = (item: ScheduleItem) => item.date < today
 
   return (
     <section style={{ marginBottom: 26 }}>
@@ -124,39 +190,36 @@ export default function MasterSchedule({ masterName }: { masterName: string }) {
         </div>
       )}
 
-      {!loading && visible.length === 0 && !error && (
+      {!loading && view === 'list' && visible.length === 0 && !error && (
         <p className={styles.empty}>Попереду майстер-класів немає</p>
       )}
 
-      {!loading && visible.length > 0 && view === 'list' && (
+      {!loading && view === 'list' && visible.length > 0 && (
         <div className={styles.list}>
           {visible.map((item) => (
-            <a
-              key={item.id}
-              href={`/master/mk?at=${encodeURIComponent(`${item.date} ${item.time}`)}`}
-              className={`${styles.card} ${isMine(item) ? styles.cardMine : ''}`}
-            >
-              <span className={styles.when}>
-                <span className={styles.day}>{formatDay(item.date)}</span>
-                <span className={styles.time}>{item.time}</span>
-              </span>
-              <span className={styles.body}>
-                <span className={styles.titleRow}>
-                  <span className={styles.name}>{item.title || FALLBACK[item.type]}</span>
-                  <span className={`${styles.tag} ${TAG[item.type].className}`}>{TAG[item.type].label}</span>
-                  {isMine(item) && <span className={`${styles.tag} ${styles.tagMine}`}>твій</span>}
-                </span>
-                <span className={styles.meta}>
-                  {item.capacity > 0
-                    ? `${item.booked} з ${item.capacity} записів`
-                    : 'без записів'}
-                  {item.master && !isMine(item) ? ` · веде ${item.master}` : ''}
-                </span>
-              </span>
-              <span className={styles.open}>Відкрити →</span>
-            </a>
+            <MkCard key={item.id} item={item} mine={isMine(item)} past={false} />
           ))}
         </div>
+      )}
+
+      {!loading && view === 'list' && pastList.length > 0 && (
+        <>
+          <div className={styles.pastHead}>
+            <span className={styles.pastTitle}>Проведені</span>
+          </div>
+          <div className={styles.list}>
+            {pastList.map((item) => (
+              <MkCard key={item.id} item={item} mine={isMine(item)} past />
+            ))}
+          </div>
+          {!showAllPast && olderCount > 0 && (
+            <div className={styles.moreWrap}>
+              <button className={ui.chip} onClick={() => setShowAllPast(true)}>
+                Показати давніші ({olderCount})
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {!loading && view === 'week' && (
@@ -197,7 +260,8 @@ export default function MasterSchedule({ masterName }: { masterName: string }) {
                     <a
                       key={item.id}
                       href={`/master/mk?at=${encodeURIComponent(`${item.date} ${item.time}`)}`}
-                      className={`${styles.chip} ${isMine(item) ? styles.chipMine : ''}`}
+                      className={`${styles.chip} ${isMine(item) ? styles.chipMine : ''}`
+                        + (isPast(item) ? ` ${styles.chipPast}` : '')}
                     >
                       <span className={styles.chipTime}>{item.time}</span>
                       {item.title || FALLBACK[item.type]}

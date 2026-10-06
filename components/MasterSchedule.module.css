@@ -43,6 +43,39 @@
 .tagIndiv { background: #e3ecf1; color: #3c5a6e; }
 .tagKids { background: #e4efe3; color: #4a7c4e; }
 .tagMine { background: #2d1f0f; color: #faf6f1; }
+.tagPast { background: #e8e2da; color: #6b5844; }
+
+/* Проведені — приглушені й без тіні, щоб око одразу відділяло їх
+   від того, що попереду, навіть не читаючи дат */
+.cardPast {
+  background: #faf7f3;
+  border-color: #ece4da;
+  box-shadow: none;
+}
+.cardPast .day { color: #6b5844; }
+.cardPast .name { color: #6b5844; }
+.cardPast .open { color: #9b8878; }
+
+.pastHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 10px;
+}
+.pastHead::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #ece4da;
+}
+.pastTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #9b8878;
+  white-space: nowrap;
+}
+
+.moreWrap { display: flex; justify-content: center; margin-top: 10px; }
 
 .open {
   font-size: 13px;
@@ -111,6 +144,7 @@
 }
 .chip:hover { filter: brightness(0.97); }
 .chipMine { border-left-color: #9b6b3a; font-weight: 700; color: #2d1f0f; }
+.chipPast { background: #f1ece6; color: #9b8878; }
 .chipTime { font-variant-numeric: tabular-nums; font-weight: 700; display: block; }
 
 .empty { text-align: center; color: #9b8878; padding: 26px 16px; font-size: 14px; }
