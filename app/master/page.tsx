@@ -54,7 +54,7 @@ export default async function MasterHome() {
         </div>
       </div>
 
-      <MasterSchedule masterName={session?.name ?? ''} />
+      <MasterSchedule masterName={session?.name ?? ''} studioId={studioId} />
 
       <h2 className={ui.cardTitle} style={{ fontSize: 18, marginBottom: 12 }}>Вироби</h2>
 

@@ -82,7 +82,16 @@ function MkCard({ item, mine, past }: { item: ScheduleItem; mine: boolean; past:
   )
 }
 
-export default function MasterSchedule({ masterName }: { masterName: string }) {
+export default function MasterSchedule({
+  masterName,
+  studioId,
+}: {
+  masterName: string
+  // Майстрині студію підставляє сервер із її доступу, а адміністраторці —
+  // ні: вона має обидві. Без цього параметра розклад на цій сторінці
+  // відповідав адміністраторці «Невідома студія»
+  studioId: string
+}) {
   const [items, setItems] = useState<ScheduleItem[]>([])
   const [pastItems, setPastItems] = useState<ScheduleItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -96,7 +105,8 @@ export default function MasterSchedule({ masterName }: { masterName: string }) {
     const load = (url: string) =>
       fetch(url).then(async (r) => ({ ok: r.ok, json: await r.json() }))
 
-    Promise.all([load('/api/schedule'), load('/api/schedule?past=1')])
+    const base = `/api/schedule?studio=${encodeURIComponent(studioId)}`
+    Promise.all([load(base), load(`${base}&past=1`)])
       .then(([upcoming, past]) => {
         if (!upcoming.ok) {
           setError(upcoming.json?.error ?? 'Не вдалося завантажити розклад')
@@ -109,7 +119,7 @@ export default function MasterSchedule({ masterName }: { masterName: string }) {
       })
       .catch(() => setError("Немає з'єднання"))
       .finally(() => setLoading(false))
-  }, [])
+  }, [studioId])
 
   const isMine = (item: ScheduleItem) => normalize(item.master) === normalize(masterName)
 
