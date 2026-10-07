@@ -256,7 +256,9 @@ export async function assignMaster(
 
   if (item.source === 'individual') {
     const { setMkMaster } = await import('./orders')
-    await setMkMaster(studioId, item.rowIndex, master)
+    const { mkKey } = await setMkMaster(studioId, item.rowIndex, master)
+    // Ім'я майстрині стоїть в описі події — оновлюємо й там
+    await syncIndividualEvent(studioId, mkKey)
     return
   }
 
@@ -301,10 +303,59 @@ export async function syncEventForSlot(studioId: string, mkDatetime: string): Pr
     const spreadsheetId = getSpreadsheetId(studioId)
     const slots = await readGroupSlots(spreadsheetId)
     const slot = slots.find((item) => item.date === parsed.date && item.time === parsed.time)
-    if (!slot) return // індивідуальні слотів не мають — там подія створюється інакше
-    await syncEventFor(studioId, slot.rowIndex)
+    if (slot) {
+      await syncEventFor(studioId, slot.rowIndex)
+      return
+    }
   } catch (error) {
     console.warn('[schedule] подію за слотом не синхронізовано:', (error as Error).message)
+    return
+  }
+
+  // Слота в «Group MKs» немає — значить це індивідуальний МК з «MK Orders»
+  await syncIndividualEvent(studioId, `${parsed.date} ${parsed.time}`)
+}
+
+// Подія індивідуального МК. Свого рядка-слота в нього немає: це кілька
+// рядків «MK Orders» з однаковою датою й часом, тож і кількість учасників
+// збираємо з них, і подію шукаємо в календарі за часом початку.
+export async function syncIndividualEvent(studioId: string, mkKey: string): Promise<void> {
+  const { calendarConfigured, upsertEvent, findEventAt, deleteEvent } = await import('./calendar')
+  if (!calendarConfigured(studioId)) return
+
+  const [date, time] = mkKey.split(' ')
+  if (!date || !time) return
+
+  try {
+    const { getOrdersForMk } = await import('./orders')
+    const orders = (await getOrdersForMk(studioId, mkKey))
+      .filter((order) => normalize(order.type) === 'individual')
+
+    // Скасовані не рахуємо; решта статусів — «booked», «certificate» і
+    // порожній — означає, що людина прийде
+    const people = orders
+      .filter((order) => normalize(order.status) !== 'cancelled')
+      .reduce((sum, order) => sum + order.people, 0)
+
+    const existing = await findEventAt(studioId, date, time, 'Individual MK')
+
+    // Нікого не лишилось — усіх скасували або МК перенесли звідси
+    if (people === 0) {
+      if (existing) await deleteEvent(studioId, existing)
+      return
+    }
+
+    await upsertEvent(studioId, {
+      type: 'indiv',
+      title: '',
+      date,
+      time,
+      capacity: people,
+      booked: people,
+      master: orders.find((order) => order.master)?.master ?? '',
+    }, existing ?? undefined)
+  } catch (error) {
+    console.warn('[schedule] подію індивідуального МК не синхронізовано:', (error as Error).message)
   }
 }
 

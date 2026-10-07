@@ -127,6 +127,47 @@ export async function upsertEvent(
   return created.data.id ?? null
 }
 
+// Індивідуальному МК немає де зберегти id події: свого рядка-слота в нього
+// теж немає, він живе кількома рядками в «MK Orders». Тому свою подію
+// знаходимо в самому календарі — за часом початку: на один час припадає
+// один індивідуальний МК. Побічна вигода: так підхоплюються й події,
+// створені колись старою надбудовою, замість того щоб заводити поруч другу.
+export async function findEventAt(
+  studioId: string,
+  date: string,          // YYYY-MM-DD
+  time: string,          // HH:MM
+  summaryPrefix: string,
+): Promise<string | null> {
+  const calendarId = CALENDAR_IDS[studioId]
+  if (!calendarId) return null
+
+  // Беремо добу з запасом, а збіг перевіряємо вже за настінним часом —
+  // так не доводиться самим рахувати зсув Києва від UTC
+  const from = new Date(`${date}T00:00:00Z`)
+  from.setUTCDate(from.getUTCDate() - 1)
+  const to = new Date(`${date}T00:00:00Z`)
+  to.setUTCDate(to.getUTCDate() + 2)
+
+  const res = await getCalendar().events.list({
+    calendarId,
+    timeMin: from.toISOString(),
+    timeMax: to.toISOString(),
+    singleEvents: true,
+    timeZone: TIMEZONE,
+    maxResults: 100,
+  })
+
+  const prefix = summaryPrefix.toLowerCase()
+  for (const event of res.data.items ?? []) {
+    if (event.status === 'cancelled') continue
+    const start = String(event.start?.dateTime ?? '')
+    if (start.slice(0, 10) !== date || start.slice(11, 16) !== time) continue
+    if (!String(event.summary ?? '').toLowerCase().startsWith(prefix)) continue
+    return event.id ?? null
+  }
+  return null
+}
+
 export async function deleteEvent(studioId: string, rawEventId: string): Promise<void> {
   const calendarId = CALENDAR_IDS[studioId]
   const eventId = normalizeEventId(rawEventId)

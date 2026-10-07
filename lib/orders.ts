@@ -281,12 +281,12 @@ export async function moveOrder(
 // Майстриня належить майстер-класу, а не окремому замовленню, тож пишемо її в
 // усі рядки цього МК — інакше розклад підхопить її лише з того рядка, який
 // трапився першим, а решта лишиться порожньою.
-// Повертає, скільком рядкам вона дісталась.
+// Повертає ключ майстер-класу й кількість рядків, яким майстриня дісталась.
 export async function setMkMaster(
   studioId: string,
   rowIndex: number,
   master: string,
-): Promise<number> {
+): Promise<{ mkKey: string; rows: number }> {
   const spreadsheetId = getSpreadsheetId(studioId)
   const map = await readColumnMap(spreadsheetId)
   if (map.master === undefined) throw new Error('В аркуші MK Orders немає колонки «Майстриня»')
@@ -308,7 +308,7 @@ export async function setMkMaster(
       data: rows.map((row) => ({ range: `'${SHEET}'!${column}${row}`, values: [[master]] })),
     },
   })
-  return rows.length
+  return { mkKey: target.mkKey, rows: rows.length }
 }
 
 export interface WalkIn {
