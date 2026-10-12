@@ -15,9 +15,11 @@ const MESSAGES: Record<string, { text: string; bad?: boolean }> = {
   error: { text: 'Не вдалося під\'єднати. Спробуйте ще раз.', bad: true },
 }
 
+type DriveStatus = 'connected' | 'expired' | 'none'
+
 export default function DriveConnect() {
   const params = useSearchParams()
-  const [state, setState] = useState<{ configured: boolean; connected: boolean } | null>(null)
+  const [state, setState] = useState<{ configured: boolean; status: DriveStatus } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -45,7 +47,7 @@ export default function DriveConnect() {
         }>{message.text}</p>
       )}
 
-      {state === null && <p className={ui.empty}>Перевіряємо…</p>}
+      {state === null && <p className={ui.empty}>Перевіряємо під&apos;єднання…</p>}
 
       {state && !state.configured && (
         <div className={ui.hint}>
@@ -54,25 +56,42 @@ export default function DriveConnect() {
         </div>
       )}
 
-      {state?.configured && (
-        state.connected ? (
-          <>
-            <p className={ui.sub} style={{ marginBottom: 14 }}>
-              Під&apos;єднано. Завантаження фото працює.
-            </p>
-            <button
-              className={ui.btn}
-              onClick={async () => {
-                await fetch('/api/drive/status', { method: 'DELETE' })
-                await load()
-              }}
-            >Від&apos;єднати</button>
-          </>
-        ) : (
+      {state?.configured && state.status === 'connected' && (
+        <>
+          <p className={ui.sub} style={{ marginBottom: 14 }}>
+            Під&apos;єднано, перевірено щойно. Завантаження фото працює.
+          </p>
+          <button
+            className={ui.btn}
+            onClick={async () => {
+              await fetch('/api/drive/status', { method: 'DELETE' })
+              await load()
+            }}
+          >Від&apos;єднати</button>
+        </>
+      )}
+
+      {/* Токен є, але Google його вже не приймає. Найчастіша причина —
+          застосунок не опублікований, і доступ анулюється через тиждень */}
+      {state?.configured && state.status === 'expired' && (
+        <>
+          <div className={ui.hint} style={{ marginTop: 0 }}>
+            <b>Під&apos;єднання злетіло — фото не завантажуються</b>
+            Google більше не приймає виданий доступ. Номери виробів і решта даних
+            зберігаються як завжди, а фото — ні. Під&apos;єднайте Drive заново.
+            Якщо це повторюється щотижня, застосунок треба опублікувати в Google
+            Cloud — у статусі «Testing» доступ анулюється рівно через 7 днів.
+          </div>
           <a className={`${ui.btn} ${ui.btnPrimary}`} href="/api/drive/connect">
-            Під&apos;єднати Google Drive
+            Під&apos;єднати заново
           </a>
-        )
+        </>
+      )}
+
+      {state?.configured && state.status === 'none' && (
+        <a className={`${ui.btn} ${ui.btnPrimary}`} href="/api/drive/connect">
+          Під&apos;єднати Google Drive
+        </a>
       )}
     </section>
   )

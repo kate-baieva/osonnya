@@ -40,6 +40,29 @@ export async function isConnected(): Promise<boolean> {
   return Boolean(stored && decrypt(stored))
 }
 
+export type DriveStatus = 'connected' | 'expired' | 'none'
+
+// isConnected() каже лише, що токен десь лежить. Але Google його анулює —
+// поки застосунок у статусі «Testing», рівно через тиждень, — і тоді в
+// налаштуваннях світилось «під'єднано», доки фото тихо не завантажувались.
+// Тут питаємо самого Google, чи токен іще робочий.
+export async function checkConnection(): Promise<DriveStatus> {
+  const stored = await getSetting(TOKEN_SETTING)
+  const refreshToken = stored ? decrypt(stored) : null
+  if (!refreshToken) return 'none'
+
+  const client = oauthClient()
+  client.setCredentials({ refresh_token: refreshToken })
+  try {
+    await client.getAccessToken()
+    return 'connected'
+  } catch (error) {
+    // invalid_grant — токен протух або доступ відкликали
+    console.warn('[drive] токен більше не дієздатний:', (error as Error).message)
+    return 'expired'
+  }
+}
+
 export async function disconnect(): Promise<void> {
   await setSetting(TOKEN_SETTING, '')
 }

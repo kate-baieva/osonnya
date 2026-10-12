@@ -134,3 +134,35 @@ export async function sendDigitalCertEmail(data: DigitalCertEmail): Promise<void
 
   console.log(`[mailer] ✅ Електронний сертифікат надіслано: ${subject}`)
 }
+
+// Під'єднання до Drive злетіло — поки його не поновлять, фото виробів
+// не завантажуються, а поломку видно лише за порожньою колонкою «Фото».
+export async function sendDriveBrokenNotice(baseUrl: string): Promise<void> {
+  const to = process.env.GMAIL_USER!
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+      <h2 style="color: #9b6b3a;">Під'єднання до Google Drive злетіло</h2>
+      <p>Google більше не приймає виданий застосунку доступ, тому
+         <strong>фото виробів зараз не завантажуються</strong>. Номери виробів
+         і решта даних зберігаються як завжди.</p>
+      <p><a href="${baseUrl}/admin/profile"
+            style="display:inline-block; background:#9b6b3a; color:#fff;
+                   padding:11px 18px; border-radius:9px; text-decoration:none;">
+        Під'єднати Drive заново
+      </a></p>
+      <p style="color:#666; font-size:13px;">
+        Якщо цей лист приходить щотижня — застосунок треба опублікувати
+        в Google Cloud: поки він у статусі «Testing», Google анулює доступ
+        рівно через 7 днів.
+      </p>
+    </div>
+  `
+
+  await getTransport().sendMail({
+    from: `"Осоння Бронювання" <${process.env.GMAIL_USER}>`,
+    to,
+    subject: 'Осоння: фото виробів не завантажуються — злетів доступ до Drive',
+    html,
+  })
+}
