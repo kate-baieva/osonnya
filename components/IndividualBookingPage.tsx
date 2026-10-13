@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { STUDIOS } from '@/lib/studios'
 import type { IndividualPrice } from '@/lib/google-sheets'
 import styles from './IndividualBookingPage.module.css'
+import LegalLinks from './LegalLinks'
 
 const PREPAYMENT = 700
 
@@ -227,6 +228,8 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
       <main className={styles.main}>
         <img src="/logo.svg" alt="Osonnya" className={styles.logo} />
         <p className={styles.errorMsg}>Посилання недійсне або застаріло. Зверніться до студії.</p>
+
+        <LegalLinks />
       </main>
     )
   }
@@ -398,6 +401,8 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
           </button>
         )}
       </form>
+
+      <LegalLinks />
     </main>
   )
 }

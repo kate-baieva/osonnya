@@ -1,4 +1,5 @@
 import styles from '@/app/legal.module.css'
+import LegalLinks from '@/components/LegalLinks'
 
 export default function PublicContractPage() {
   return (
@@ -282,6 +283,8 @@ export default function PublicContractPage() {
       </div>
 
       <a href="/" className={styles.backBtn}>Повернутись на головну</a>
+    
+      <LegalLinks />
     </main>
   )
 }

@@ -1,4 +1,5 @@
 import styles from './home.module.css'
+import LegalLinks from '@/components/LegalLinks'
 
 export default function HomePage() {
   return (
@@ -34,10 +35,7 @@ export default function HomePage() {
         </a>
       </div>
 
-      <footer className={styles.footer}>
-        <a href="/terms" className={styles.footerLink}>Правила та умови</a>
-        <a href="/public-contract" className={styles.footerLink}>Публічний договір</a>
-      </footer>
+      <LegalLinks />
     </main>
   )
 }

@@ -7,6 +7,7 @@ import { STUDIOS, type StudioInfo } from '@/lib/studios'
 import SlotList from '@/components/SlotList'
 import RegistrationForm from '@/components/RegistrationForm'
 import styles from '@/app/page.module.css'
+import LegalLinks from './LegalLinks'
 
 function formatDate(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -168,6 +169,8 @@ export default function BookingPage({ studioId }: Props) {
           </section>
         </div>
       )}
+
+      <LegalLinks />
     </main>
   )
 }

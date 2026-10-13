@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { STUDIOS } from '@/lib/studios'
 import styles from './CertificatePurchasePage.module.css'
+import LegalLinks from './LegalLinks'
 
 // ─── Типи ────────────────────────────────────────────────
 
@@ -111,6 +112,8 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
       <main className={styles.main}>
         <img src="/logo.svg" alt="Osonnya" className={styles.logo} />
         <p className={styles.errorMsg}>Посилання недійсне або застаріло. Зверніться до студії.</p>
+
+        <LegalLinks />
       </main>
     )
   }
@@ -221,6 +224,8 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
           </button>
         )}
       </form>
+
+      <LegalLinks />
     </main>
   )
 }

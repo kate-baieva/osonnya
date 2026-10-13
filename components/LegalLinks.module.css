@@ -1,0 +1,32 @@
+/* Той самий вигляд, що був у підвалі головної, але тепер спільний */
+.footer {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #f0e8df;
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.link {
+  color: #9b8878;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.link:hover {
+  color: #2d1f0f;
+  border-bottom-color: #2d1f0f;
+}
+
+/* На телефоні третій пункт довгий — у стовпчик читається краще,
+   ніж обрізаним у рядок */
+@media (max-width: 560px) {
+  .footer {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
