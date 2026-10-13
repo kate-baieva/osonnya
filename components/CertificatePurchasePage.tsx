@@ -60,7 +60,7 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
   const studio = STUDIOS[studioId]
 
   const [params, setParams]           = useState<CertParams | null>(null)
-  const [certType, setCertType]       = useState<'paper' | 'digital'>('paper')
+  const [certType, setCertType]       = useState<'paper' | 'digital' | null>(null)
   const [serverError, setServerError] = useState('')
   const [submitting, setSubmitting]   = useState(false)
 
@@ -77,6 +77,9 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
 
   const doSubmit = async (data: FormInput, skipPayment = false) => {
     if (!params) return
+    // Кнопка без вибраного типу неактивна, але сервер приймає лише
+    // 'paper' чи 'digital' — підстраховка, щоб не піти туди з null
+    if (!certType) { setServerError('Оберіть тип сертифіката'); return }
     setServerError('')
     setSubmitting(true)
     try {
@@ -146,21 +149,27 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
       {/* Форма */}
       <form className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
 
-        {/* Тип сертифіката */}
+        {/* Тип сертифіката — обов'язковий вибір, за умовчанням не стоїть
+            жоден: інакше покупець не помічає перемикача й отримує не те */}
         <div className={styles.typeBlock}>
           <span className={styles.typeLabel}>Тип сертифіката</span>
           <div className={styles.typeToggle}>
-            <button type="button"
-              className={`${styles.typeBtn} ${certType === 'paper' ? styles.typeBtnActive : ''}`}
-              onClick={() => setCertType('paper')}>
-              📄 Паперовий
-            </button>
-            <button type="button"
-              className={`${styles.typeBtn} ${certType === 'digital' ? styles.typeBtnActive : ''}`}
-              onClick={() => setCertType('digital')}>
-              📧 Електронний
-            </button>
+            <label className={`${styles.typeOption} ${certType === 'paper' ? styles.typeOptionActive : ''}`}>
+              <input type="radio" name="certType" value="paper"
+                checked={certType === 'paper'}
+                onChange={() => setCertType('paper')} />
+              <span>📄 Паперовий</span>
+            </label>
+            <label className={`${styles.typeOption} ${certType === 'digital' ? styles.typeOptionActive : ''}`}>
+              <input type="radio" name="certType" value="digital"
+                checked={certType === 'digital'}
+                onChange={() => setCertType('digital')} />
+              <span>📧 Електронний</span>
+            </label>
           </div>
+          {!certType && (
+            <span className={styles.typeHint}>Оберіть, який сертифікат вам потрібен</span>
+          )}
         </div>
 
         <h2 className={styles.formTitle}>Дані покупця</h2>
@@ -209,7 +218,7 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
 
         {serverError && <p className={styles.serverError}>{serverError}</p>}
 
-        <button type="submit" className={styles.submit} disabled={submitting}>
+        <button type="submit" className={styles.submit} disabled={submitting || !certType}>
           {submitting ? 'Надсилаємо…' : 'Оплатити'}
         </button>
 
@@ -217,7 +226,7 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
           <button
             type="button"
             className={styles.testBtn}
-            disabled={submitting}
+            disabled={submitting || !certType}
             onClick={handleSubmit((data) => doSubmit(data, true))}
           >
             🧪 Тест без оплати

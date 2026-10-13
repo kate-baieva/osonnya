@@ -12,6 +12,10 @@ import styles from './RegistrationForm.module.css'
 const groupFormSchema = formSchema.extend({
   email: z.string().min(1, 'Введіть email').email('Введіть коректний email'),
   newsletter: z.boolean().optional(),
+  // Пункт 8 Правил безпеки: онлайн ознайомлення підтверджується саме
+  // відміткою у формі запису, тож без неї запис неможливий
+  safetyRules: z.boolean()
+    .refine((value) => value, 'Підтвердіть ознайомлення з Правилами безпеки'),
 })
 type GroupFormInput = z.infer<typeof groupFormSchema>
 
@@ -57,10 +61,11 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
     reset,
   } = useForm<GroupFormInput>({
     resolver: zodResolver(groupFormSchema),
-    defaultValues: { peopleCount: 1, newsletter: false },
+    defaultValues: { peopleCount: 1, newsletter: false, safetyRules: false },
   })
 
   const peopleCount = watch('peopleCount') || 1
+  const safetyRules = watch('safetyRules')
   const certCovers  = certVal.status === 'valid' ? (certVal.peopleCount ?? 0) : 0
   const extraCount  = certCovers > 0 ? Math.max(0, peopleCount - certCovers) : 0
   const isMixed     = certVal.status === 'valid' && extraCount > 0
@@ -231,6 +236,18 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
         <input type="checkbox" {...register('newsletter')} />
         <span>Хочу підписатись на розсилку оновлень та пропозицій від Осоння</span>
       </label>
+
+      <label className={styles.checkboxRow}>
+        <input type="checkbox" {...register('safetyRules')} />
+        <span>
+          Я ознайомлений(а) з{' '}
+          <a href="/air-raid-rules" target="_blank" rel="noopener noreferrer"
+            className={styles.inlineLink}>
+            Правилами безпеки під час повітряної тривоги
+          </a>
+        </span>
+      </label>
+      {errors.safetyRules && <span className={styles.error}>{errors.safetyRules.message}</span>}
 
       <div className={styles.field}>
         <label htmlFor="peopleCount">Кількість людей</label>
@@ -420,6 +437,7 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
         disabled={
           !selectedSlot ||
           submitting ||
+          !safetyRules ||
           (payMethod === 'certificate' && certVal.status !== 'valid')
         }
       >

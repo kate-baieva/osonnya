@@ -29,6 +29,10 @@ const formSchema = z.object({
               .regex(/^\+?3?8?0?\d{9}$|^0\d{9}$/, 'Введіть коректний номер (наприклад: 0501234567)'),
   instagram: z.string().min(1, 'Введіть нік або посилання на Instagram').max(100),
   email:     z.string().min(1, 'Введіть email').email('Введіть коректний email').max(100),
+  // Пункт 8 Правил безпеки: онлайн ознайомлення підтверджується саме
+  // відміткою у формі запису, тож без неї запис неможливий
+  safetyRules: z.boolean()
+    .refine((value) => value, 'Підтвердіть ознайомлення з Правилами безпеки'),
 })
 type FormInput = z.infer<typeof formSchema>
 
@@ -79,9 +83,12 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormInput>({
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<FormInput>({
     resolver: zodResolver(formSchema),
+    defaultValues: { safetyRules: false },
   })
+
+  const safetyRules = watch('safetyRules')
 
   // Розкодовуємо параметри з URL
   useEffect(() => {
@@ -382,8 +389,20 @@ export default function IndividualBookingPage({ studioId }: { studioId: string }
 
         {serverError && <p className={styles.serverError}>{serverError}</p>}
 
+        <label className={styles.checkboxRow}>
+          <input type="checkbox" {...register('safetyRules')} />
+          <span>
+            Я ознайомлений(а) з{' '}
+            <a href="/air-raid-rules" target="_blank" rel="noopener noreferrer"
+              className={styles.inlineLink}>
+              Правилами безпеки під час повітряної тривоги
+            </a>
+          </span>
+        </label>
+        {errors.safetyRules && <span className={styles.error}>{errors.safetyRules.message}</span>}
+
         <button type="submit" className={styles.submit}
-          disabled={submitting || (payMethod === 'certificate' && certStatus !== 'valid')}>
+          disabled={submitting || !safetyRules || (payMethod === 'certificate' && certStatus !== 'valid')}>
           {submitting ? 'Надсилаємо…'
             : payMethod === 'certificate' ? 'Записатись'
             : 'Записатись та оплатити'}

@@ -252,6 +252,16 @@
   cursor: pointer;
 }
 
+/* Посилання всередині тексту галочки — має читатись як посилання,
+   але не перетягувати увагу з самого підтвердження */
+.inlineLink {
+  color: #9b6b3a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.inlineLink:hover { color: #7a5230; }
+
 /* Підсумок «До сплати» */
 .paySummary {
   display: flex;
