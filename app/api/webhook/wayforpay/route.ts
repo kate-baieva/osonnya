@@ -16,6 +16,8 @@ import {
   redeemPromo,
 } from '@/lib/google-sheets'
 import { MK_TYPE_GROUP, MK_TYPE_INDIVIDUAL } from '@/lib/mk-type'
+import { appendOtherOrder } from '@/lib/other-orders'
+import type { Category } from '@/lib/service-categories'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
 import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio } from '@/lib/studios'
@@ -51,6 +53,23 @@ export async function POST(req: NextRequest) {
         const p = await readPendingOrder(pend.id, spreadsheetId)
         if (!p) {
           console.error(`[webhook/wayforpay] ⚠️ pending не знайдено: ${orderReference}`)
+          return NextResponse.json(buildWebhookResponse(orderReference))
+        }
+
+        // ── Оплата послуги: коворкінг, випал, оренда, крамниця ──────────
+        // Це не майстер-клас, тож іде в «Other Orders», а не в «MK Orders»
+        if (p.kind === 'service') {
+          const client = await findOrCreateClient(
+            p.name as string, p.surname as string, p.phone as string,
+            undefined, spreadsheetId, (p.email as string) || undefined,
+          )
+          const row = await appendOtherOrder(pend.studio, {
+            client,
+            amount: paidAmount || (p.amount as number),
+            category: p.category as Category,
+            comment: p.comment as string,
+          })
+          console.log(`[webhook/wayforpay] ✅ послугу записано в Other Orders: рядок ${row}`)
           return NextResponse.json(buildWebhookResponse(orderReference))
         }
 

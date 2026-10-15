@@ -25,6 +25,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/certificates', label: 'Сертифікат',           icon: ICONS.certificate, group: 'main' },
   { href: '/admin/promo',        label: 'Промокод',             icon: ICONS.tag,         group: 'main' },
   { href: '/admin/pieces',       label: 'Вироби',               icon: ICONS.pot,         group: 'main' },
+  { href: '/admin/services',     label: 'Оплата послуг',        icon: ICONS.tag,         group: 'main' },
   { href: '/admin/masters',      label: 'Майстрині',            icon: ICONS.people,      group: 'bottom' },
   { href: '/admin/profile',      label: 'Налаштування профілю', icon: ICONS.gear,        group: 'bottom' },
 ]
