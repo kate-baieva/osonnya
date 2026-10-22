@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DEFECT_STATUSES, PIECE_STATUSES, type Piece, type PieceStatus } from '@/lib/piece-types'
 import { STUDIOS } from '@/lib/studios'
+import { compressImage } from '@/lib/compress-image'
 import styles from './PiecesScreen.module.css'
 
 const STUDIO_LIST = [STUDIOS.sumy, STUDIOS.if]
@@ -183,7 +184,7 @@ export default function PiecesScreen({
       const form = new FormData()
       form.append('studio', studio)
       form.append('rowIndex', String(piece.rowIndex))
-      form.append('photo', file)
+      form.append('photo', await compressImage(file))
       const res = await fetch('/api/pieces/photo', { method: 'POST', body: form })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Не вдалося зберегти фото'); return }

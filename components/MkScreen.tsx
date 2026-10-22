@@ -7,6 +7,7 @@ import type { Piece } from '@/lib/piece-types'
 import type { ScheduleItem } from '@/lib/schedule'
 import { STUDIOS } from '@/lib/studios'
 import ui from './ui.module.css'
+import { compressImage } from '@/lib/compress-image'
 import styles from './MkScreen.module.css'
 
 const ACCOUNTS = ['Готівка студія', 'Ощад ФОП', 'Моно ФОП', 'Переказ на картку', 'WayForPay']
@@ -272,8 +273,11 @@ export default function MkScreen({
           onClose={() => setAddingPieceFor(null)}
           onSaved={async (warning) => {
             setAddingPieceFor(null)
-            if (warning) setError(warning)
+            // Спершу перечитуємо список, і лише потім показуємо попередження:
+            // load() починається з setError(''), тож у зворотному порядку
+            // воно стиралось і майстриня нічого не бачила
             await load()
+            if (warning) setError(warning)
           }}
         />
       )}
@@ -505,7 +509,9 @@ function AddPieceDialog({
       form.append('studio', studioId)
       form.append('client', order.client)
       form.append('mkDatetime', mkDatetime)
-      if (photo) form.append('photo', photo)
+      // Стискаємо тут, а не на сервері: саме довге вивантаження великого
+      // файлу впиралось в обмеження часу на функцію
+      if (photo) form.append('photo', await compressImage(photo))
 
       const res = await fetch('/api/mk/pieces', { method: 'POST', body: form })
       const json = await res.json()

@@ -4,6 +4,11 @@ import { addPiece, setPhoto } from '@/lib/pieces'
 import { photoUrl, uploadPiecePhoto } from '@/lib/drive'
 import { STUDIOS } from '@/lib/studios'
 
+// Типове обмеження на тарифі Hobby — 10 секунд, і великому фото з планшета
+// їх не вистачало: виріб уже створений, а фото не доїхало. Фото тепер
+// стискається в браузері, але запас тут лишаємо на випадок повільної мережі.
+export const maxDuration = 60
+
 const MAX_BYTES = 12 * 1024 * 1024
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
