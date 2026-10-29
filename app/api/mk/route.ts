@@ -101,6 +101,8 @@ export async function POST(request: Request) {
 
       await addWalkIn(studioId, {
         client, mkDatetime, people,
+        phone: String(body.phone ?? '').trim(),
+        email: String(body.email ?? '').trim(),
         amount: Number(body.amount) || 0,
         paid: Number(body.paid) || 0,
         account: String(body.account ?? 'Готівка студія'),

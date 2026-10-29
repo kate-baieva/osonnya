@@ -400,6 +400,8 @@ function WalkInDialog({
   onSave: (entry: Record<string, unknown>) => Promise<void>
 }) {
   const [client, setClient] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [people, setPeople] = useState(1)
   const [amount, setAmount] = useState('')
   const [paid, setPaid] = useState('')
@@ -422,6 +424,26 @@ function WalkInDialog({
             <input
               className={ui.input} placeholder="Марія Шевченко"
               value={client} onChange={(e) => setClient(e.target.value)}
+            />
+          </div>
+
+          <div className={ui.field}>
+            <label className={ui.label}>Номер телефону</label>
+            <input
+              className={ui.input} type="tel" placeholder="0501234567"
+              value={phone} onChange={(e) => setPhone(e.target.value)}
+            />
+            <span className={ui.fieldNote}>
+              За ним людина впізнається серед наявних клієнтів. Без телефона
+              контакт теж збережеться, але може задвоїтись із її ж старим записом
+            </span>
+          </div>
+
+          <div className={ui.field}>
+            <label className={ui.label}>Email (за бажанням)</label>
+            <input
+              className={ui.input} type="email" placeholder="example@email.com"
+              value={email} onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className={ui.field}>
@@ -462,7 +484,10 @@ function WalkInDialog({
             onClick={async () => {
               setSaving(true)
               await onSave({
-                client: client.trim(), people,
+                client: client.trim(),
+                phone: phone.trim(),
+                email: email.trim(),
+                people,
                 amount: Number(amount) || 0,
                 paid: Number(paid) || 0,
                 account, type: mkType,

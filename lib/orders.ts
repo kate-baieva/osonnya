@@ -313,6 +313,8 @@ export async function setMkMaster(
 
 export interface WalkIn {
   client: string
+  phone?: string
+  email?: string
   mkDatetime: string
   people: number
   amount: number
@@ -328,6 +330,25 @@ export async function addWalkIn(studioId: string, entry: WalkIn): Promise<void> 
   const spreadsheetId = getSpreadsheetId(studioId)
   const map = await readColumnMap(spreadsheetId)
 
+  // Людина, що прийшла без запису, — такий самий клієнт, як і всі інші:
+  // її контакти мають лягти в «Clients». Раніше цей шлях аркуша не чіпав
+  // узагалі, тож контакти таких учасників просто не зберігались.
+  // Ім'я приходить одним рядком — ділимо на перше ім'я й решту прізвища.
+  const parts = entry.client.trim().split(/\s+/)
+  const firstName = parts[0] ?? ''
+  const surname = parts.slice(1).join(' ')
+
+  let client = entry.client.trim()
+  try {
+    const { findOrCreateClient } = await import('./google-sheets')
+    client = await findOrCreateClient(
+      firstName, surname, entry.phone ?? '', undefined, spreadsheetId, entry.email || undefined,
+    ) || client
+  } catch (error) {
+    // Не критично: запис на МК важливіший за картку клієнта
+    console.warn('[addWalkIn] контакт не збережено:', (error as Error).message)
+  }
+
   const width = Math.max(...Object.values(map).map((i) => i as number)) + 1
   const row = new Array<string | number>(width).fill('')
   const put = (field: Field, value: string | number) => {
@@ -337,7 +358,7 @@ export async function addWalkIn(studioId: string, entry: WalkIn): Promise<void> 
 
   const now = formatSheetDate(new Date())
   put('orderedAt', now)
-  put('client', entry.client)
+  put('client', client)
   put('amount', entry.amount)
   put('type', entry.type)
   put('mkDatetime', entry.mkDatetime)
