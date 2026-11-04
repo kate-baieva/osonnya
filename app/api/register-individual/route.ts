@@ -11,6 +11,7 @@ import { resolveIndividualPrice } from '@/lib/pricing'
 import { createInvoice, encodeOrderData } from '@/lib/wayforpay'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 import { z } from 'zod'
+import { sendBookingConfirmation, parseMkDatetime, safeSend } from '@/lib/client-mail'
 
 // Передоплата для індивідуального МК — фіксована
 const INDIVIDUAL_PREPAYMENT = 700
@@ -102,6 +103,19 @@ export async function POST(req: NextRequest) {
         mkType: 'individual',
       }, spreadsheetId)
       await redeemCertificate(certResult.info.rowIndex, spreadsheetId)
+
+      const when = parseMkDatetime(mkDatetime)
+      if (when) {
+        await safeSend('підтвердження запису', () => sendBookingConfirmation({
+          studioId,
+          to: email,
+          mkDate: when.date,
+          mkTime: when.time,
+          peopleCount,
+          paid: 0,
+          certificateCode: certificateCode.trim(),
+        }))
+      }
     } catch (err) {
       console.error('[register-individual] ❌ certificate save:', err)
       return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })

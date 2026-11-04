@@ -164,6 +164,36 @@ export async function setPhoto(
   }
 }
 
+// Відмітка «Повідомили» в колонці Communication. Колонка не наша — туди
+// майстрині пишуть свої нотатки руками, тож дописуємо збоку, а не затираємо.
+export async function markNotified(
+  studioId: string,
+  rowIndexes: number[],
+  text: string,
+): Promise<void> {
+  if (rowIndexes.length === 0) return
+
+  const spreadsheetId = getSpreadsheetId(studioId)
+  const map = await ensureColumns(spreadsheetId)
+  if (map.communication === undefined) return   // колонки немає — не критично
+
+  const column = columnLetter(map.communication)
+  const byRow = new Map((await getPieces(studioId)).map((piece) => [piece.rowIndex, piece]))
+
+  const data = rowIndexes.map((rowIndex) => {
+    const existing = byRow.get(rowIndex)?.communication ?? ''
+    return {
+      range: `${SHEET}!${column}${rowIndex}`,
+      values: [[existing ? `${existing}; ${text}` : text]],
+    }
+  })
+
+  await getSheetsClient().spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: 'RAW', data },
+  })
+}
+
 // Масова зміна статусів — одним запитом, щоб не впертись у ліміти API.
 export async function updateStatuses(
   studioId: string,

@@ -14,6 +14,7 @@ import {
   encodePendingRef,
 } from '@/lib/wayforpay'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
+import { sendBookingConfirmation, parseMkDatetime, safeSend } from '@/lib/client-mail'
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -92,6 +93,20 @@ export async function POST(req: NextRequest) {
           pricePerPerson: studio.pricePerPerson,
         }, spreadsheetId)
         await redeemCertificate(certResult.info.rowIndex, spreadsheetId)
+
+        // Оплати не було, тож вебхук сюди не прийде — лист шлемо самі
+        const when = parseMkDatetime(slot.datetime)
+        if (when) {
+          await safeSend('підтвердження запису', () => sendBookingConfirmation({
+            studioId,
+            to: email,
+            mkDate: when.date,
+            mkTime: when.time,
+            peopleCount,
+            paid: 0,
+            certificateCode,
+          }))
+        }
       } catch (err) {
         console.error('[POST /api/register] ❌ certificate save:', err)
         return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })

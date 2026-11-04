@@ -5,6 +5,7 @@ import { createCertificateRecord, findOrCreateClient, getAllMkPrices, getNextCer
 import { resolveCertificatePrice } from '@/lib/pricing'
 import { MK_TYPE_GROUP, MK_TYPE_INDIVIDUAL } from '@/lib/mk-type'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
+import { sendCertificateToBuyer, safeSend } from '@/lib/client-mail'
 import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 
@@ -96,13 +97,19 @@ export async function POST(req: NextRequest) {
       }, spreadsheetId)
       console.log(`[buy-certificate] ✅ TEST сертифікат створено: ${certCode}`)
 
-      // Паперовий — сповіщення; Електронний — картинка вкладенням
+      // Паперовий — сповіщення; Електронний — картинка вкладенням.
+      // Покупець отримує свій лист в обох випадках.
       if (certType === 'paper') {
         sendPaperCertNotification({
           certCode, mkType: mkLabel, peopleCount, price,
           buyerName: clientFullName, buyerPhone: phone, buyerInstagram: instagram,
           studioName: studio.name,
         }).catch((e) => console.warn('[buy-certificate] email не надіслано:', e))
+
+        await safeSend('паперовий сертифікат покупцю', () => sendCertificateToBuyer({
+          studioId, to: email, certCode, mkTypeLabel: mkLabel,
+          peopleCount, price, expiresAt: certExpiry(),
+        }))
       } else {
         const imageBuffer = await renderCertificateImage({
           certCode, peopleCount, isGroup,
@@ -114,6 +121,11 @@ export async function POST(req: NextRequest) {
           buyerName: clientFullName, buyerPhone: phone, buyerInstagram: instagram,
           studioName: studio.name, city: studio.city, imageBuffer,
         }).catch((e) => console.warn('[buy-certificate] email не надіслано:', e))
+
+        await safeSend('електронний сертифікат покупцю', () => sendCertificateToBuyer({
+          studioId, to: email, certCode, mkTypeLabel: mkLabel,
+          peopleCount, price, expiresAt: certExpiry(), imageBuffer,
+        }))
       }
     } catch (err) {
       console.error('[buy-certificate] ❌ TEST save:', err)

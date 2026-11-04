@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { PIECE_STATUSES, updateStatuses, type PieceStatus, type StatusChange } from '@/lib/pieces'
 import { STUDIOS } from '@/lib/studios'
+import { notifyPiecesReady, READY_STATUS } from '@/lib/pieces-notify'
 
 export async function POST(request: Request) {
   const session = await getSession()
@@ -40,7 +41,14 @@ export async function POST(request: Request) {
 
   try {
     await updateStatuses(studioId, changes, session.name)
-    return NextResponse.json({ updated: changes.length })
+
+    // «Готово» означає, що виріб можна забирати, — клієнт має про це дізнатись.
+    // Листи шлемо після збереження статусу: якщо пошта відмовить, статус лишиться.
+    const notified = status === READY_STATUS
+      ? await notifyPiecesReady(studioId, rowIndexes)
+      : null
+
+    return NextResponse.json({ updated: changes.length, notified })
   } catch (error) {
     console.error('[api/pieces/status]', error)
     return NextResponse.json({ error: 'Не вдалося зберегти зміни' }, { status: 500 })

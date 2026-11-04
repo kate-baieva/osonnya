@@ -14,11 +14,18 @@ import {
   createCertificateRecord,
   readPendingOrder,
   redeemPromo,
+  findClientEmail,
 } from '@/lib/google-sheets'
 import { MK_TYPE_GROUP, MK_TYPE_INDIVIDUAL } from '@/lib/mk-type'
 import { appendOtherOrder } from '@/lib/other-orders'
 import type { Category } from '@/lib/service-categories'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
+import {
+  sendBookingConfirmation,
+  sendCertificateToBuyer,
+  parseMkDatetime,
+  safeSend,
+} from '@/lib/client-mail'
 import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio } from '@/lib/studios'
 import { getSpreadsheetId } from '@/lib/studios'
@@ -104,6 +111,22 @@ export async function POST(req: NextRequest) {
           await redeemPromo(p.promoRowIndex as number, spreadsheetId)
           console.log(`[webhook/wayforpay] ✅ промокод погашено: ${p.promoCode}`)
         }
+
+        // Лист учаснику — останнім, уже після всіх записів у таблицю
+        const when = parseMkDatetime(p.mkDatetime as string)
+        if (when && p.email) {
+          await safeSend('підтвердження запису', () => sendBookingConfirmation({
+            studioId: pend.studio,
+            to: p.email as string,
+            mkDate: when.date,
+            mkTime: when.time,
+            peopleCount: p.peopleCount as number,
+            paid: paidAmount,
+            certificateCode: p.certificateCode as string | undefined,
+            promoCode: p.promoCode as string | undefined,
+            promoPercent: p.discountPercent as number | undefined,
+          }))
+        }
         return NextResponse.json(buildWebhookResponse(orderReference))
       }
 
@@ -160,15 +183,24 @@ export async function POST(req: NextRequest) {
               studioName: studio?.name ?? studioId,
             }
 
+            // Пошта покупця в номер замовлення не влазить, тож її зберегли
+            // в «Clients» ще до оплати — звідти й беремо
+            const buyerEmail = await findClientEmail(clientFullName, spreadsheetId)
+            const expiresAt = new Date()
+            expiresAt.setMonth(expiresAt.getMonth() + 3)
+
             if (orderData.ct === 'p') {
-              // Паперовий — текстове сповіщення
+              // Паперовий — сповіщення студії, щоб його підготували
               sendPaperCertNotification(common)
                 .catch((e) => console.warn('[webhook] paper email не надіслано:', e))
+
+              await safeSend('паперовий сертифікат покупцю', () => sendCertificateToBuyer({
+                studioId, to: buyerEmail, certCode, mkTypeLabel,
+                peopleCount: orderData.c, price: certPrice, expiresAt,
+              }))
             } else if (orderData.ct === 'd') {
               // Електронний — генеруємо картинку й надсилаємо вкладенням
               try {
-                const expiresAt = new Date()
-                expiresAt.setMonth(expiresAt.getMonth() + 3)
                 const imageBuffer = await renderCertificateImage({
                   certCode, peopleCount: orderData.c, isGroup, expiresAt,
                   instagram: studio?.instagramHandle ?? '@osonnya.ceramics',
@@ -176,6 +208,11 @@ export async function POST(req: NextRequest) {
                 await sendDigitalCertEmail({
                   ...common, city: studio?.city ?? studioId, imageBuffer,
                 })
+                await safeSend('електронний сертифікат покупцю', () => sendCertificateToBuyer({
+                  studioId, to: buyerEmail, certCode, mkTypeLabel,
+                  peopleCount: orderData.c, price: certPrice, expiresAt,
+                  imageBuffer,
+                }))
               } catch (e) {
                 console.warn('[webhook] digital email не надіслано:', e)
               }
@@ -205,6 +242,24 @@ export async function POST(req: NextRequest) {
         if (orderData.cert && orderData.cri) {
           await redeemCertificate(orderData.cri, spreadsheetId)
           console.log(`[webhook/wayforpay] ✅ сертифікат погашено: ${orderData.cert}`)
+        }
+
+        // Індивідуальний МК бере лише передоплату — решту платять у студії,
+        // тож у листі має бути дві суми
+        const when = parseMkDatetime(orderData.d)
+        const email = await findClientEmail(clientFullName, spreadsheetId)
+        if (when && email) {
+          const total = isIndividual ? (orderData.amt ?? paidAmount) : paidAmount
+          await safeSend('підтвердження запису', () => sendBookingConfirmation({
+            studioId,
+            to: email,
+            mkDate: when.date,
+            mkTime: when.time,
+            peopleCount: orderData.c,
+            paid: paidAmount,
+            due: Math.max(0, total - paidAmount),
+            certificateCode: orderData.cert,
+          }))
         }
       } else {
         // ── Запасний варіант для старих замовлень ───────────────────────

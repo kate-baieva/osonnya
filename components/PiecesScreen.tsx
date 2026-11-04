@@ -89,6 +89,8 @@ export default function PiecesScreen({
   const [pieces, setPieces] = useState<Piece[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Підсумок листів про готовність — показуємо одразу після зміни статусу
+  const [mailNote, setMailNote] = useState('')
 
   const [filter, setFilter] = useState<FilterId>(mode === 'archive' ? 'all' : 'raw')
   const [query, setQuery] = useState('')
@@ -201,6 +203,7 @@ export default function PiecesScreen({
   const apply = async () => {
     setSaving(true)
     setError('')
+    setMailNote('')
     try {
       const res = await fetch('/api/pieces/status', {
         method: 'POST',
@@ -217,6 +220,22 @@ export default function PiecesScreen({
         setError(json.error ?? 'Не вдалося зберегти зміни')
         return
       }
+
+      // Листи про готовність шле сервер; тут лише кажемо, що з ними сталось
+      const notified = json.notified as { sent: number; withoutEmail: string[] } | null
+      if (notified) {
+        const parts: string[] = []
+        if (notified.sent > 0) {
+          parts.push(notified.sent === 1
+            ? 'Лист про готовність надіслано одному клієнту.'
+            : `Листи про готовність надіслано: ${notified.sent}.`)
+        }
+        if (notified.withoutEmail.length > 0) {
+          parts.push(`Без пошти — напишіть самі: ${notified.withoutEmail.join(', ')}.`)
+        }
+        setMailNote(parts.join(' '))
+      }
+
       setComment('')
       await load(studio)
     } catch {
@@ -270,6 +289,7 @@ export default function PiecesScreen({
       />
 
       {error && <p className={styles.error}>{error}</p>}
+      {mailNote && <p className={styles.mailNote}>{mailNote}</p>}
 
       {!loading && visible.length > 0 && (
         <div className={styles.selectBar}>

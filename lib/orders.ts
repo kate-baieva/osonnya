@@ -15,7 +15,7 @@ type Field =
   | 'type' | 'mkDatetime' | 'people'
   | 'afterpayment' | 'afterpayDate' | 'afterpayAccount'
   | 'certificate' | 'status' | 'comment' | 'promo'
-  | 'master' | 'attended'
+  | 'master' | 'attended' | 'reminded'
 
 const HEADERS: Record<string, Field> = {
   'order datetime': 'orderedAt',
@@ -36,6 +36,7 @@ const HEADERS: Record<string, Field> = {
   'промокод': 'promo',
   'майстриня': 'master',
   'прийшло осіб': 'attended',
+  'нагадано': 'reminded',
 }
 
 export interface Order {
@@ -59,6 +60,8 @@ export interface Order {
   status: string
   comment: string
   master: string
+  /** Коли надіслали нагадування напередодні; порожньо — ще не надсилали */
+  reminded: string
 }
 
 type ColumnMap = Partial<Record<Field, number>>
@@ -167,6 +170,7 @@ export async function getOrders(studioId: string): Promise<Order[]> {
       status: cell(row, 'status'),
       comment: cell(row, 'comment'),
       master: cell(row, 'master'),
+      reminded: cell(row, 'reminded'),
     })
   })
 
@@ -176,6 +180,51 @@ export async function getOrders(studioId: string): Promise<Order[]> {
 export async function getOrdersForMk(studioId: string, mkKey: string): Promise<Order[]> {
   const orders = await getOrders(studioId)
   return orders.filter((order) => order.mkKey === mkKey)
+}
+
+// Дописує колонку «Нагадано» в кінець аркуша, якщо її ще немає.
+// Нові колонки можна додавати лише праворуч: формули рахують місця
+// за буквами, і вставка всередину їх зсуває.
+export async function ensureRemindedColumn(spreadsheetId: string): Promise<number | null> {
+  const map = await readColumnMap(spreadsheetId)
+  if (map.reminded !== undefined) return map.reminded
+
+  const header = (await readValues(spreadsheetId, `'${SHEET}'!A${HEADER_ROW}:AZ${HEADER_ROW}`))[0] ?? []
+  const index = header.length
+  if (index === 0) return null   // аркуш порожній — щось не так, краще не чіпати
+
+  await getSheetsClient().spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${SHEET}'!${columnLetter(index)}${HEADER_ROW}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [['Нагадано']] },
+  })
+  return index
+}
+
+/** Відмічає, що нагадування надіслано, — щоб крон не надіслав його вдруге. */
+export async function markReminded(
+  studioId: string,
+  rowIndexes: number[],
+  when: string,
+): Promise<void> {
+  if (rowIndexes.length === 0) return
+
+  const spreadsheetId = getSpreadsheetId(studioId)
+  const index = await ensureRemindedColumn(spreadsheetId)
+  if (index === null) return
+
+  const column = columnLetter(index)
+  await getSheetsClient().spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: rowIndexes.map((row) => ({
+        range: `'${SHEET}'!${column}${row}`,
+        values: [[when]],
+      })),
+    },
+  })
 }
 
 function formatSheetDate(d: Date): string {

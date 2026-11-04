@@ -233,6 +233,17 @@
   font-size: 0.9rem;
 }
 
+/* Підсумок розсилки: скільки листів пішло і кому написати руками */
+.mailNote {
+  background: #f4efe7;
+  color: #6b5742;
+  border-left: 3px solid #9b6b3a;
+  border-radius: 0 10px 10px 0;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 /* ─── Нижня панель дій ─────────────────────────────────── */
 
 .actionBar {
