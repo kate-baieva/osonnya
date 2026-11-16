@@ -243,6 +243,32 @@ function normPhone(p: string): string {
   return digits.slice(-9)
 }
 
+// Пошта клієнта за повним ім'ям. Потрібна листам, які надсилаються не одразу
+// після форми, а пізніше: нагадуванню напередодні й сповіщенню про вироби —
+// там з контактів відома лише колонка «Client».
+//
+// Повертає порожній рядок, якщо клієнта немає або пошту не вказано: лист
+// просто не піде, і це не привід ламати те, що його спричинило.
+export async function findClientEmail(
+  clientFullName: string,
+  spreadsheetId?: string,
+): Promise<string> {
+  const sid = spreadsheetId ?? config.spreadsheetId
+  const want = normName(clientFullName)
+  if (!want) return ''
+
+  try {
+    const rows = await readValues(sid, `${config.sheets.clients}!A${config.dataRows.clients}:F`)
+    for (const row of rows) {
+      const full = normName(`${row[0] ?? ''} ${row[1] ?? ''}`)
+      if (full && full === want) return String(row[5] ?? '').trim()
+    }
+  } catch (error) {
+    console.warn('[findClientEmail] контакти недоступні:', (error as Error).message)
+  }
+  return ''
+}
+
 // Шукає клієнта за повним збігом імені + прізвища + телефону.
 // Якщо знайдено — повертає наявне повне ім'я (новий запис не додається).
 // Інакше — додає новий запис. Повертає повне ім'я.
