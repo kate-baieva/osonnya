@@ -97,15 +97,32 @@ export default function CertificatesScreen({
               <div className={styles.pay}>
                 {cert.paid >= cert.amount
                   ? <span className={styles.ok}>Оплачено {money(cert.amount)}</span>
-                  : <span className={styles.debt}>Не оплачено {money(cert.amount)}</span>}
+                  : (
+                    <>
+                      <span className={styles.debt}>Не оплачено {money(cert.amount)}</span>
+                      <span className={styles.meta}>готівкою при видачі</span>
+                    </>
+                  )}
               </div>
               <div className={styles.actions}>
                 <button
                   className={`${ui.btn} ${ui.btnSmall} ${ui.btnPrimary}`}
                   onClick={async () => {
-                    if (!confirm(`Видати сертифікат № ${cert.number} клієнту ${cert.client}?`)) return
+                    // Неоплачений — замовлений із оплатою готівкою: видача
+                    // заразом записує гроші, тож питаємо саме про них
+                    const unpaid = cert.paid < cert.amount
+                    const question = unpaid
+                      ? `Видати сертифікат № ${cert.number} клієнту ${cert.client}`
+                        + ` й записати оплату ${money(cert.amount)} готівкою?`
+                      : `Видати сертифікат № ${cert.number} клієнту ${cert.client}?`
+                    if (!confirm(question)) return
                     const done = await send({ action: 'issue', rowIndex: cert.rowIndex })
-                    if (done) setNotice(`Сертифікат № ${cert.number} позначено як виданий`)
+                    if (done) {
+                      setNotice(done.paidNow > 0
+                        ? `Сертифікат № ${cert.number} видано.`
+                          + ` Оплату ${money(done.paidNow)} записано (Готівка студія).`
+                        : `Сертифікат № ${cert.number} позначено як виданий`)
+                    }
                   }}
                 >Видати</button>
               </div>

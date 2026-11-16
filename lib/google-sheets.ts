@@ -695,6 +695,12 @@ export async function createCertificateRecord(
     price: number
     certCode: string
     kind?: string // «паперовий» / «електронний» — щоб знати, за ким чекати
+    /**
+     * Чи вже отримані гроші. Хибне — для сертифіката, замовленого з оплатою
+     * готівкою: дата оплати лишається порожньою, і саме за нею вся решта
+     * застосунку розуміє, що сертифікат не оплачений (див. `getCertificates`).
+     */
+    paid?: boolean
   },
   spreadsheetId?: string,
 ): Promise<void> {
@@ -726,8 +732,8 @@ export async function createCertificateRecord(
         expiresStr,             // E: Due Date (MM/DD/YYYY)
         sheetMkType(data.mkType), // F: MK Type — строгий список group/individual
         data.certCode,          // G: Number
-        orderDate,              // H: Payment Date
-        'WayForPay',            // I: Payment Account
+        data.paid === false ? '' : orderDate,      // H: Payment Date
+        data.paid === false ? '' : 'WayForPay',    // I: Payment Account
         false,                  // J: Utilized? = FALSE
         '',                     // K: Expired [auto]
         '',                     // L: Column 1

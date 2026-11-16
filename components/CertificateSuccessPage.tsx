@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { STUDIOS } from '@/lib/studios'
+import { STUDIOS, CERT_PICKUP_HOURS } from '@/lib/studios'
 import styles from './CertificateSuccessPage.module.css'
 
 // Завантажуємо canvas-компонент тільки на клієнті (Canvas API недоступний на сервері)
@@ -27,6 +27,8 @@ export default function CertificateSuccessPage({ studioId }: { studioId: string 
   const certType   = searchParams.get('type') ?? 'paper'
   const mkLabel    = searchParams.get('mk') ?? ''
   const peopleCount = Number(searchParams.get('count') ?? '1')
+  const isCash     = searchParams.get('cash') === '1'
+  const price      = Number(searchParams.get('price') ?? '0')
   const studio     = STUDIOS[studioId]
   const paper      = PAPER_INFO[studioId]
 
@@ -36,6 +38,62 @@ export default function CertificateSuccessPage({ studioId }: { studioId: string 
     day: 'numeric', month: 'long', year: 'numeric',
   })
   const instagram = studio?.instagramHandle ?? '@osonnya.ceramics'
+
+  // ─── Замовлення з оплатою готівкою ────────────────────────────────────
+  // Номера сертифіката тут немає: поки гроші не внесені, ним можна було б
+  // записатись на майстер-клас. Номер і все інше піде листом після видачі.
+  if (isCash) {
+    return (
+      <main className={styles.main}>
+        <img src="/logo.svg" alt="Osonnya" className={styles.logo} />
+
+        <div className={styles.card}>
+          <div className={styles.icon}>🎁</div>
+
+          <h1 className={styles.heading}>
+            Замовлення прийнято!<br />Сертифікат чекає на вас у студії
+          </h1>
+
+          <p className={styles.sub}>
+            Паперовий подарунковий сертифікат від {studio?.name}
+            {mkLabel ? ` · ${mkLabel}` : ''}
+          </p>
+
+          {price > 0 && (
+            <div className={styles.cashBlock}>
+              <span className={styles.cashLabel}>До сплати в студії</span>
+              <span className={styles.cashSum}>{price.toLocaleString('uk-UA')} грн</span>
+            </div>
+          )}
+
+          {paper && (
+            <div className={styles.paperInfo}>
+              <p>
+                Заберіть і оплатіть сертифікат за адресою <strong>{paper.address}</strong>,{' '}
+                <strong>{CERT_PICKUP_HOURS}</strong>.
+              </p>
+              <p>
+                Коли заберете сертифікат, ми надішлемо на вашу пошту його номер,
+                термін дії та все, що потрібно для запису на майстер-клас.
+              </p>
+              <p>
+                У випадку виникнення додаткових питань – напишіть нам на нашу сторінку в
+                Інстаграм –{' '}
+                <a href={paper.instagramUrl} target="_blank" rel="noopener noreferrer"
+                  className={styles.igLink}>
+                  {paper.instagramUrl}
+                </a>
+              </p>
+            </div>
+          )}
+
+          <a href={studio?.basePath ?? '/'} className={styles.btn}>
+            Переглянути розклад майстер-класів
+          </a>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className={styles.main}>

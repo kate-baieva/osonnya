@@ -28,6 +28,11 @@ interface CertValidation {
 
 const MK_NAME = 'Груповий майстер-клас з ліплення з глини'
 
+// «до 1 особи», але «до 2 осіб» — родовий відмінок після «до»
+function pluralOsoba(n: number): string {
+  return n % 10 === 1 && n % 100 !== 11 ? 'особи' : 'осіб'
+}
+
 function pluralUchasnyk(n: number): string {
   if (n % 10 === 1 && n % 100 !== 11) return 'учасник'
   if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'учасники'
@@ -39,9 +44,24 @@ interface Props {
   studioId: string
   pricePerPerson: number
   onSuccess: () => void
+  /** Підписане посилання на запис із оплатою готівкою; без нього — звичайна форма */
+  cashToken?: string
+  /** Скільки людей дозволяє готівкове посилання */
+  maxPeople?: number
+  onCashSuccess?: (amount: number) => void
+  /** Посилання виявилось уже використаним, поки людина заповнювала форму */
+  onCashLinkUsed?: () => void
 }
 
-export default function RegistrationForm({ selectedSlot, studioId, pricePerPerson, onSuccess }: Props) {
+export default function RegistrationForm({
+  selectedSlot, studioId, pricePerPerson, onSuccess,
+  cashToken, maxPeople, onCashSuccess, onCashLinkUsed,
+}: Props) {
+  // Спосіб оплати задає саме посилання, тож ні перемикача, ні промокоду тут немає
+  const isCash = Boolean(cashToken)
+  const peopleLimit = isCash
+    ? Math.min(maxPeople ?? 1, selectedSlot?.spotsRemaining ?? 1)
+    : (selectedSlot?.spotsRemaining ?? 20)
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [payMethod, setPayMethod] = useState<'card' | 'certificate'>('card')
@@ -129,7 +149,13 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
   const onSubmit = async (data: GroupFormInput) => {
     if (!selectedSlot) return
 
-    if (payMethod === 'certificate') {
+    if (isCash && data.peopleCount > peopleLimit) {
+      setServerError(
+        `За цим посиланням можна записати не більше ${peopleLimit} ${pluralOsoba(peopleLimit)}`)
+      return
+    }
+
+    if (!isCash && payMethod === 'certificate') {
       if (certVal.status !== 'valid') {
         setServerError('Спочатку перевірте код сертифікату')
         return
@@ -147,8 +173,9 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
 
     try {
       const body: Record<string, unknown> = { ...data, slotId: selectedSlot.id, studio: studioId }
-      if (payMethod === 'certificate') body.certificateCode = certCode.trim()
-      if (payMethod === 'card' && promoStatus === 'valid') body.promoCode = promoCode.trim()
+      if (isCash) body.cashToken = cashToken
+      if (!isCash && payMethod === 'certificate') body.certificateCode = certCode.trim()
+      if (!isCash && payMethod === 'card' && promoStatus === 'valid') body.promoCode = promoCode.trim()
 
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -158,7 +185,15 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
       const json = await res.json()
 
       if (!res.ok) {
+        // Посилання встигли використати, поки заповнювали форму —
+        // показуємо той самий екран, що й при повторному відкритті
+        if (json.used && onCashLinkUsed) { onCashLinkUsed(); return }
         setServerError(json.error ?? 'Сталася помилка. Спробуйте ще раз.')
+        return
+      }
+
+      if (json.cash && onCashSuccess) {
+        onCashSuccess(json.cash.amount)
         return
       }
 
@@ -253,16 +288,21 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
         <label htmlFor="peopleCount">Кількість людей</label>
         <input
           id="peopleCount" type="number" min={1}
-          max={selectedSlot?.spotsRemaining ?? 20}
+          max={peopleLimit}
           {...register('peopleCount', { valueAsNumber: true })}
           className={errors.peopleCount ? styles.inputError : ''}
           onChange={() => { if (certVal.status === 'valid') setCertVal({ status: 'idle' }) }}
         />
         {errors.peopleCount && <span className={styles.error}>{errors.peopleCount.message}</span>}
-        {selectedSlot && <span className={styles.hint}>Вільних місць: {selectedSlot.spotsRemaining}</span>}
+        {isCash
+          ? <span className={styles.hint}>
+              Це посилання дає записати до {peopleLimit} {pluralOsoba(peopleLimit)}
+            </span>
+          : selectedSlot && <span className={styles.hint}>Вільних місць: {selectedSlot.spotsRemaining}</span>}
       </div>
 
       {/* Вибір способу оплати */}
+      {!isCash && (
       <div className={styles.field}>
         <label>Спосіб оплати</label>
         <div className={styles.payToggle}>
@@ -282,9 +322,10 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
           </button>
         </div>
       </div>
+      )}
 
       {/* Промокод (лише для оплати карткою) */}
-      {payMethod === 'card' && (
+      {!isCash && payMethod === 'card' && (
         <div className={styles.certBlock}>
           <label htmlFor="promoCode" className={styles.certLabel}>Промокод (за наявності)</label>
           <div className={styles.certRow}>
@@ -315,7 +356,7 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
       )}
 
       {/* Блок сертифікату */}
-      {payMethod === 'certificate' && (
+      {!isCash && payMethod === 'certificate' && (
         <div className={styles.certBlock}>
           <label htmlFor="certCode" className={styles.certLabel}>Код сертифікату</label>
           <div className={styles.certRow}>
@@ -362,8 +403,27 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
         </div>
       )}
 
+      {/* Підсумок «До сплати» — готівкою */}
+      {selectedSlot && isCash && (
+        <div className={styles.paySummary}>
+          <span className={styles.paySummaryTitle}>До сплати</span>
+          <div className={styles.payLine}>
+            <span className={styles.payLineText}>
+              {MK_NAME}, {peopleCount} {pluralUchasnyk(peopleCount)}
+            </span>
+            <span className={styles.payLineSum}>
+              {(peopleCount * pricePerPerson).toLocaleString('uk-UA')} грн
+            </span>
+          </div>
+          <p className={styles.payCashNote}>
+            <strong>Оплата готівкою в студії</strong> — перед початком майстер-класу.
+            Онлайн платити не потрібно.
+          </p>
+        </div>
+      )}
+
       {/* Підсумок «До сплати» */}
-      {selectedSlot && (payMethod === 'card' || certVal.status === 'valid') && (
+      {selectedSlot && !isCash && (payMethod === 'card' || certVal.status === 'valid') && (
         <div className={styles.paySummary}>
           <span className={styles.paySummaryTitle}>До сплати</span>
 
@@ -438,12 +498,12 @@ export default function RegistrationForm({ selectedSlot, studioId, pricePerPerso
           !selectedSlot ||
           submitting ||
           !safetyRules ||
-          (payMethod === 'certificate' && certVal.status !== 'valid')
+          (!isCash && payMethod === 'certificate' && certVal.status !== 'valid')
         }
       >
         {submitting
           ? 'Надсилаємо…'
-          : payMethod === 'certificate' && !isMixed
+          : isCash || (payMethod === 'certificate' && !isMixed)
             ? 'Записатись'
             : 'Записатись та оплатити'}
       </button>

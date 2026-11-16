@@ -38,6 +38,12 @@ export const STUDIOS: Record<string, StudioInfo> = {
   },
 }
 
+/**
+ * Коли можна забрати й оплатити паперовий сертифікат. Однакові для обох
+ * студій, тому не в `StudioInfo`: щоб зміна була в одному місці, а не в двох.
+ */
+export const CERT_PICKUP_HOURS = 'пт–нд, 12:00–14:00 та 16:00–18:00'
+
 export function getStudio(studioId: string): StudioInfo | null {
   return STUDIOS[studioId] ?? null
 }

@@ -15,6 +15,7 @@ import {
 } from '@/lib/wayforpay'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 import { sendBookingConfirmation, parseMkDatetime, safeSend } from '@/lib/client-mail'
+import { cashComment, decodeCashLink, isCashLinkUsed } from '@/lib/cash-link'
 
 export async function POST(req: NextRequest) {
   let body: unknown
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
   const studioId      = (raw?.studio as string ?? 'sumy')
   const certificateCode = ((raw?.certificateCode as string ?? '')).trim() || undefined
   const promoCode     = ((raw?.promoCode as string ?? '')).trim() || undefined
+  const cashToken     = ((raw?.cashToken as string ?? '')).trim() || undefined
   const email         = ((raw?.email as string ?? '')).trim()
   const newsletter    = raw?.newsletter === true
   const parsed = formSchema.safeParse(body)
@@ -62,6 +64,59 @@ export async function POST(req: NextRequest) {
       { error: `На цей майстер-клас залишилось лише ${slot.spotsRemaining} місць` },
       { status: 409 }
     )
+  }
+
+  // ─── Запис із оплатою готівкою ────────────────────────────────────────────
+  // Посилання виписує адміністратор, коли погоджується пустити людину без
+  // онлайн-оплати. Грошей тут не беремо й не позначаємо: рядок лягає з сумою,
+  // але без оплат — тобто боржником. Гроші внесе майстриня в студії тією самою
+  // кнопкою «Додати оплату», що й для решти. Так у таблиці не з'являються
+  // гроші, яких фізично ще немає в касі.
+  if (cashToken) {
+    const link = decodeCashLink(cashToken)
+    if (!link || link.studio !== studioId || link.slot !== slotId) {
+      return NextResponse.json({ error: 'Посилання недійсне' }, { status: 400 })
+    }
+    if (peopleCount > link.max) {
+      return NextResponse.json(
+        { error: `За цим посиланням можна записати не більше ${link.max} осіб` },
+        { status: 400 },
+      )
+    }
+
+    try {
+      // Одноразовість: перевіряємо просто перед записом, щоб вікно між
+      // перевіркою й записом було якнайкоротшим
+      if (await isCashLinkUsed(link)) {
+        return NextResponse.json(
+          { error: 'Це посилання вже використане', used: true },
+          { status: 409 },
+        )
+      }
+
+      const clientFullName = await findOrCreateClient(
+        name, surname, phone, instagram, spreadsheetId, email, newsletter,
+      )
+      await appendOrder({
+        clientFullName,
+        mkDatetime: slot.datetime,
+        peopleCount,
+        orderReference: cashComment(link.id),
+        status: 'booked',
+        pricePerPerson: studio.pricePerPerson,
+      }, spreadsheetId)
+    } catch (err) {
+      console.error('[POST /api/register] ❌ cash save:', err)
+      return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
+    }
+
+    // TODO (окрема розмова про листи): sendBookingConfirmation із `cash: true`
+    // і `due` = сума запису — лист уже вміє підписувати борг як домовленість.
+
+    return NextResponse.json({
+      success: true,
+      cash: { amount: peopleCount * studio.pricePerPerson },
+    })
   }
 
   // ─── Оплата з сертифікатом ────────────────────────────────────────────────

@@ -88,3 +88,12 @@
   .side { align-items: stretch; flex-direction: row; }
   .side > * { flex: 1; text-align: center; }
 }
+
+/* Посилання з оплатою готівкою — зелене, щоб не переплутати зі звичайним:
+   натиснути не те означає пустити людину без оплати */
+.cashBtn {
+  border-color: #cfe0c3;
+  background: #f4f8f0;
+  color: #43632f;
+}
+.cashBtn:hover:not(:disabled) { border-color: #4a7c4e; color: #3b6b3f; }

@@ -188,3 +188,60 @@
   background: #9b6b3a;
   color: #fff;
 }
+
+/* ─── Запис із оплатою готівкою ──────────────────────────────────────────
+   Зелений, а не фірмовий коричневий: це не частина оформлення сторінки,
+   а попередження про незвичний спосіб оплати — його має бути видно одразу. */
+
+.cashBanner {
+  margin-top: 1.1rem;
+  background: #eef4e9;
+  border: 1px solid #cfe0c3;
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+}
+
+.cashBannerTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #43632f;
+  margin-bottom: 0.3rem;
+}
+
+.cashBannerText {
+  font-size: 0.9rem;
+  color: #55704a;
+  line-height: 1.55;
+}
+
+.payBox {
+  background: #eef4e9;
+  border: 1px solid #cfe0c3;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+  text-align: left;
+  width: 100%;
+}
+
+.payBoxTitle {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #43632f;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+}
+
+.payBoxSum {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #2d1f0f;
+  margin-bottom: 0.35rem;
+}
+
+.payBoxText {
+  font-size: 0.9rem;
+  color: #55704a;
+  line-height: 1.55;
+}

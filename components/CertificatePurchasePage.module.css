@@ -299,3 +299,35 @@
 @media (max-width: 480px) {
   .formRow { grid-template-columns: 1fr; }
 }
+
+/* ─── Оплата готівкою ────────────────────────────────── */
+
+/* Електронний + готівка — глухий кут, тож не підказка, а помилка */
+.clashBox {
+  background: #fff0f0;
+  border: 1px solid #f5c6c6;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  color: #a1341f;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.cashBox {
+  background: #eef4e9;
+  border: 1px solid #cfe0c3;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  color: #55704a;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.cashBox strong { color: #43632f; }
+
+.payWhere {
+  font-size: 0.85rem;
+  color: #55704a;
+  line-height: 1.5;
+  margin-top: -0.4rem;
+}

@@ -163,6 +163,11 @@ export default function MkScreen({
                     {order.certificate && <span className={styles.note}>сертифікат № {order.certificate}</span>}
                     {order.promo && <span className={styles.note}>промокод {order.promo}</span>}
                     {order.comment === 'Без запису' && <span className={styles.note}>прийшли без запису</span>}
+                    {/* Перевірка рядком, а не через lib/cash-link: той тягне
+                        crypto, і збірка клієнтського бандла падає */}
+                    {order.comment.trim().startsWith('Готівка') && (
+                      <span className={styles.note}>запис із оплатою готівкою</span>
+                    )}
                     {cancelled && <span className={styles.note}>запис скасовано — місце вільне</span>}
                   </div>
 

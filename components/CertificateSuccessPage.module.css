@@ -146,3 +146,32 @@
   width: 100%;
   margin-top: 0.25rem;
 }
+
+/* Сума, яку чекаємо готівкою. Зелена, а не фірмова коричнева: це не номер
+   сертифіката, а нагадування, що гроші ще не сплачено */
+.cashBlock {
+  background: #eef4e9;
+  border: 1px solid #cfe0c3;
+  border-radius: 12px;
+  padding: 1rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cashLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #55704a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cashSum {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #43632f;
+}

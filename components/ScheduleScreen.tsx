@@ -45,6 +45,7 @@ export default function ScheduleScreen({ past = false }: { past?: boolean }) {
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<'all' | MkType>('all')
   const [adding, setAdding] = useState(false)
+  const [cashFor, setCashFor] = useState<ScheduleItem | null>(null)
   const [query, setQuery] = useState('')
   const [origin, setOrigin] = useState('')
 
@@ -224,7 +225,15 @@ export default function ScheduleScreen({ past = false }: { past?: boolean }) {
                 {item.type === 'group' && !past && (
                   full
                     ? <span className={`${ui.btn} ${ui.btnSmall} ${ui.btnFull}`}>Місць немає</span>
-                    : <CopyButton text={bookingLink} label="Копіювати посилання" className={`${ui.btn} ${ui.btnSmall}`} />
+                    : (
+                      <>
+                        <CopyButton text={bookingLink} label="Копіювати посилання" className={`${ui.btn} ${ui.btnSmall}`} />
+                        <button
+                          className={`${ui.btn} ${ui.btnSmall} ${styles.cashBtn}`}
+                          onClick={() => setCashFor(item)}
+                        >Посилання готівкою</button>
+                      </>
+                    )
                 )}
                 {item.type !== 'kids' && (
                   <a
@@ -237,6 +246,15 @@ export default function ScheduleScreen({ past = false }: { past?: boolean }) {
           )
         })}
       </div>
+
+      {cashFor && (
+        <CashLinkDialog
+          studioId={studioId}
+          item={cashFor}
+          origin={origin}
+          onClose={() => setCashFor(null)}
+        />
+      )}
 
       {adding && (
         <AddMkDialog
@@ -381,6 +399,115 @@ function AddMkDialog({
           <button className={`${ui.btn} ${ui.btnPrimary}`} disabled={saving || !date} onClick={submit}>
             {saving ? 'Додаємо…' : 'Додати в розклад'}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Посилання на запис із оплатою готівкою. Виписується вручну й на конкретну
+// домовленість, тож тут лише одне, що треба вирішити, — скільки людей воно
+// пускає. Решту (на який МК, одноразовість) бере на себе підпис у посиланні.
+function CashLinkDialog({
+  studioId,
+  item,
+  origin,
+  onClose,
+}: {
+  studioId: string
+  item: ScheduleItem
+  origin: string
+  onClose: () => void
+}) {
+  const free = Math.max(0, item.capacity - item.booked)
+  const [max, setMax] = useState(1)
+  const [link, setLink] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const create = async () => {
+    setError('')
+    setSaving(true)
+    try {
+      const res = await fetch('/api/cash-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studio: studioId, slot: item.eventId || item.id, max }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Не вдалося створити посилання'); return }
+      setLink(`${origin}${json.path}`)
+    } catch {
+      setError("Немає з'єднання")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className={styles.modalWrap}>
+      <div className={styles.modalBack} onClick={onClose} />
+      <div className={styles.modalCard}>
+        <div className={styles.modalHead}>
+          <h3 className={styles.modalTitle}>Посилання з оплатою готівкою</h3>
+          <button className={styles.modalClose} onClick={onClose}>×</button>
+        </div>
+
+        <p className={ui.sub} style={{ marginTop: 8 }}>
+          {item.title || FALLBACK_TITLE[item.type]} · {formatDay(item.date)}, {item.time}
+          {' · '}вільних місць {free}
+        </p>
+
+        {!link && (
+          <>
+            <div className={ui.formGrid} style={{ marginTop: 14 }}>
+              <div className={`${ui.field} ${ui.fieldWide}`}>
+                <label className={ui.label}>Максимум учасників за посиланням</label>
+                <div className={ui.stepper}>
+                  <button
+                    className={ui.stepBtn} disabled={max <= 1}
+                    onClick={() => setMax((n) => Math.max(1, n - 1))}
+                  >−</button>
+                  <span className={ui.stepVal}>{max}</span>
+                  <button
+                    className={ui.stepBtn} disabled={max >= free}
+                    onClick={() => setMax((n) => Math.min(free, n + 1))}
+                  >+</button>
+                </div>
+                <span className={ui.fieldNote}>Більше за посиланням записати не вийде</span>
+              </div>
+            </div>
+
+            <div className={ui.hint}>
+              <b>Одноразове</b>
+              Після запису посилання перестає працювати. Запис ляже в «MK Orders»
+              з сумою, але без оплати — гроші внесете на сторінці МК, коли людина
+              заплатить у студії.
+            </div>
+          </>
+        )}
+
+        {link && (
+          <div className={ui.resultBox}>
+            <p className={ui.resultLabel}>Посилання для клієнта:</p>
+            <div className={ui.linkRow}>
+              <span className={ui.linkText}>{link}</span>
+              <CopyButton text={link} />
+            </div>
+          </div>
+        )}
+
+        {error && <p className={ui.error} style={{ marginTop: 12 }}>{error}</p>}
+
+        <div className={styles.modalFoot}>
+          <button className={ui.btn} onClick={onClose}>{link ? 'Готово' : 'Скасувати'}</button>
+          {!link && (
+            <button
+              className={`${ui.btn} ${ui.btnPrimary}`}
+              disabled={saving || free < 1}
+              onClick={create}
+            >{saving ? 'Створюємо…' : 'Створити посилання'}</button>
+          )}
         </div>
       </div>
     </div>

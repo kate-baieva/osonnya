@@ -140,21 +140,70 @@ export async function getCertificates(studioId: string): Promise<Certificate[]> 
   return list
 }
 
-export async function markIssued(studioId: string, rowIndex: number): Promise<void> {
+/** Рахунок, на який ідуть гроші, отримані в студії */
+export const CASH_ACCOUNT = 'Готівка студія'
+
+/**
+ * Видача паперового сертифіката в студії.
+ *
+ * Куплений карткою сертифікат уже оплачений — тут лише дата видачі.
+ * А замовлений із оплатою готівкою лежить без дати оплати, і гроші за нього
+ * беруть саме в цю мить. Тому видача заразом записує й оплату: окрема кнопка
+ * «внести гроші» означала б, що колись її забудуть натиснути, — а це рівно та
+ * діра, заради якої все це й робилось.
+ *
+ * Повертає `paidNow` — скільки записали зараз (0, якщо вже було оплачено).
+ */
+export async function issueCertificate(
+  studioId: string,
+  rowIndex: number,
+): Promise<{ number: string; client: string; amount: number; paidNow: number }> {
   const spreadsheetId = getSpreadsheetId(studioId)
-  const map = await columnMap(spreadsheetId)
+  const [map, list] = await Promise.all([
+    columnMap(spreadsheetId),
+    getCertificates(studioId),
+  ])
   if (map.issued === undefined) throw new Error('В аркуші Certificate Orders немає колонки «Видано»')
+
+  const cert = list.find((item) => item.rowIndex === rowIndex)
+  if (!cert) throw new Error(`В аркуші Certificate Orders немає рядка ${rowIndex}`)
 
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
-  const stamp = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`
+  const issuedStamp = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`
+  const payStamp = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
+    + ` ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 
-  await getSheetsClient().spreadsheets.values.update({
-    spreadsheetId,
+  const data: { range: string; values: (string | number)[][] }[] = [{
     range: `'${SHEET}'!${columnLetter(map.issued)}${rowIndex}`,
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [[stamp]] },
+    values: [[issuedStamp]],
+  }]
+
+  const unpaid = cert.paid < cert.amount
+  if (unpaid && map.paymentDate !== undefined) {
+    data.push({
+      range: `'${SHEET}'!${columnLetter(map.paymentDate)}${rowIndex}`,
+      values: [[payStamp]],
+    })
+    if (map.account !== undefined) {
+      data.push({
+        range: `'${SHEET}'!${columnLetter(map.account)}${rowIndex}`,
+        values: [[CASH_ACCOUNT]],
+      })
+    }
+  }
+
+  await getSheetsClient().spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: 'USER_ENTERED', data },
   })
+
+  return {
+    number: cert.number,
+    client: cert.client,
+    amount: cert.amount,
+    paidNow: unpaid ? cert.amount : 0,
+  }
 }
 
 export async function getNextNumber(studioId: string): Promise<string> {

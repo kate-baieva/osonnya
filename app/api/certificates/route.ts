@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
-import { getCertificates, getNextNumber, markIssued, sellCertificate, PAPER, DIGITAL } from '@/lib/certificates'
+import { getCertificates, getNextNumber, issueCertificate, sellCertificate, PAPER, DIGITAL } from '@/lib/certificates'
 import { STUDIOS, getSpreadsheetId, getStudio } from '@/lib/studios'
 import { findOrCreateClient } from '@/lib/google-sheets'
 import { sendCertificateToBuyer, safeSend } from '@/lib/client-mail'
@@ -120,8 +120,15 @@ export async function POST(request: Request) {
       if (!Number.isInteger(rowIndex) || rowIndex < 2) {
         return NextResponse.json({ error: 'Невідомий сертифікат' }, { status: 400 })
       }
-      await markIssued(studioId, rowIndex)
-      return NextResponse.json({ ok: true })
+      // Видача готівкового сертифіката заразом записує й оплату
+      const issued = await issueCertificate(studioId, rowIndex)
+
+      // TODO (окрема розмова про листи): якщо issued.paidNow > 0 —
+      // sendCertificateToBuyer з `inHand: true` (сертифікат уже на руках).
+      // Для куплених карткою лист пішов ще в мить оплати, тож не дублювати.
+      // Пошту брати з «Clients» за іменем, як це робить findClientEmail.
+
+      return NextResponse.json({ ok: true, ...issued })
     }
 
     if (body.action === 'sell') {

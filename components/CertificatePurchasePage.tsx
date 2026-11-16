@@ -61,8 +61,13 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
 
   const [params, setParams]           = useState<CertParams | null>(null)
   const [certType, setCertType]       = useState<'paper' | 'digital' | null>(null)
+  const [payMethod, setPayMethod]     = useState<'card' | 'cash' | null>(null)
   const [serverError, setServerError] = useState('')
   const [submitting, setSubmitting]   = useState(false)
+
+  // Електронний сертифікат висилає сам сайт одразу після оплати, тож готівкою
+  // його взяти неможливо: гроші прийдуть пізніше, ніж сертифікат
+  const clash = certType === 'digital' && payMethod === 'cash'
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormInput>({
     resolver: zodResolver(formSchema),
@@ -80,17 +85,34 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
     // Кнопка без вибраного типу неактивна, але сервер приймає лише
     // 'paper' чи 'digital' — підстраховка, щоб не піти туди з null
     if (!certType) { setServerError('Оберіть тип сертифіката'); return }
+    if (!payMethod) { setServerError('Оберіть спосіб оплати'); return }
+    if (clash) return
     setServerError('')
     setSubmitting(true)
     try {
       const res = await fetch('/api/buy-certificate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, ...params, certType, ...(skipPayment ? { skipPayment: true } : {}) }),
+        body: JSON.stringify({
+          ...data, ...params, certType, payMethod,
+          ...(skipPayment ? { skipPayment: true } : {}),
+        }),
       })
       const json = await res.json()
       if (!res.ok) { setServerError(json.error ?? 'Сталася помилка. Спробуйте ще раз.'); return }
       if (json.paymentUrl) { window.location.href = json.paymentUrl; return }
+
+      // Готівка: номера сертифіката немає — лише що й коли забрати
+      if (json.cash) {
+        const base = `${window.location.origin}${params.studio === 'if' ? '/if' : '/sumy'}/certificate/success`
+        const url  = new URL(base)
+        url.searchParams.set('cash',  '1')
+        url.searchParams.set('mk',    json.mkLabel ?? params.mkLabel)
+        url.searchParams.set('count', String(json.peopleCount ?? params.peopleCount))
+        url.searchParams.set('price', String(json.price ?? params.price))
+        window.location.href = url.toString()
+        return
+      }
       // Тест-режим: редірект на success зі згенерованим кодом
       if (json.success && json.certCode) {
         const base = `${window.location.origin}${params.studio === 'if' ? '/if' : '/sumy'}/certificate/success`
@@ -172,6 +194,44 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
           )}
         </div>
 
+        {/* Спосіб оплати */}
+        <div className={styles.typeBlock}>
+          <span className={styles.typeLabel}>Спосіб оплати</span>
+          <div className={styles.typeToggle}>
+            <label className={`${styles.typeOption} ${payMethod === 'card' ? styles.typeOptionActive : ''}`}>
+              <input type="radio" name="payMethod" value="card"
+                checked={payMethod === 'card'}
+                onChange={() => { setPayMethod('card'); setServerError('') }} />
+              <span>💳 Карткою</span>
+            </label>
+            <label className={`${styles.typeOption} ${payMethod === 'cash' ? styles.typeOptionActive : ''}`}>
+              <input type="radio" name="payMethod" value="cash"
+                checked={payMethod === 'cash'}
+                onChange={() => { setPayMethod('cash'); setServerError('') }} />
+              <span>💵 Готівкою в студії</span>
+            </label>
+          </div>
+          {!payMethod && (
+            <span className={styles.typeHint}>Оберіть, як вам зручно оплатити</span>
+          )}
+        </div>
+
+        {clash && (
+          <div className={styles.clashBox}>
+            <strong>Електронний сертифікат можна оплатити лише карткою.</strong><br />
+            Його висилає сам сайт одразу після оплати, тож готівкою це не працює.
+            Оберіть паперовий — його ви заберете й оплатите в студії.
+          </div>
+        )}
+
+        {payMethod === 'cash' && !clash && (
+          <div className={styles.cashBox}>
+            <strong>Оплата готівкою в студії</strong><br />
+            Ми відкладемо для вас сертифікат, а оплатите готівкою, коли прийдете
+            забирати його в студію.
+          </div>
+        )}
+
         <h2 className={styles.formTitle}>Дані покупця</h2>
 
         <div className={styles.formRow}>
@@ -215,18 +275,27 @@ export default function CertificatePurchasePage({ studioId }: { studioId: string
           <span className={styles.payLabel}>До сплати</span>
           <span className={styles.payAmount}>{params.price.toLocaleString('uk-UA')} грн</span>
         </div>
+        {payMethod === 'cash' && !clash && (
+          <p className={styles.payWhere}>Оплата готівкою — у студії, коли будете забирати сертифікат.</p>
+        )}
 
         {serverError && <p className={styles.serverError}>{serverError}</p>}
 
-        <button type="submit" className={styles.submit} disabled={submitting || !certType}>
-          {submitting ? 'Надсилаємо…' : 'Оплатити'}
+        <button
+          type="submit"
+          className={styles.submit}
+          disabled={submitting || !certType || !payMethod || clash}
+        >
+          {submitting
+            ? 'Надсилаємо…'
+            : payMethod === 'cash' && !clash ? 'Замовити й оплатити в студії' : 'Оплатити'}
         </button>
 
         {isLocalhost && (
           <button
             type="button"
             className={styles.testBtn}
-            disabled={submitting || !certType}
+            disabled={submitting || !certType || !payMethod || clash}
             onClick={handleSubmit((data) => doSubmit(data, true))}
           >
             🧪 Тест без оплати

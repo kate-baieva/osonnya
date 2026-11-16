@@ -28,6 +28,9 @@ const bodySchema = z.object({
   instagram:   z.string().min(1).max(100),
   email:       z.string().email('Некоректний email').max(100),
   certType:    z.enum(['paper', 'digital']).default('paper'),
+  // Готівка — для тих, кому незручно платити карткою: сертифікат відкладається,
+  // а гроші беруть у студії, коли людина приходить його забирати
+  payMethod:   z.enum(['card', 'cash']).default('card'),
   skipPayment: z.boolean().optional(),
 })
 
@@ -47,7 +50,16 @@ export async function POST(req: NextRequest) {
   }
 
   const { studio: studioId, mkLabel, peopleCount,
-          name, surname, phone, instagram, email, certType, skipPayment } = parsed.data
+          name, surname, phone, instagram, email, certType, payMethod, skipPayment } = parsed.data
+
+  // Електронний сертифікат надсилає сам сайт одразу після оплати — готівкою
+  // це не працює. Форма це вже не дає вибрати, тут — остання перевірка
+  if (payMethod === 'cash' && certType === 'digital') {
+    return NextResponse.json(
+      { error: 'Електронний сертифікат можна оплатити лише карткою' },
+      { status: 400 },
+    )
+  }
 
   const studio = getStudio(studioId)
   if (!studio) return NextResponse.json({ error: 'Невідома студія' }, { status: 400 })
@@ -81,6 +93,38 @@ export async function POST(req: NextRequest) {
   }
   const baseUrl  = process.env.NEXT_PUBLIC_BASE_URL!
   const isGroup  = mkLabel.toLowerCase().includes('груповий')
+
+  // ── Оплата готівкою в студії ───────────────────────────────────────────────
+  // Сертифікат створюється одразу, але без дати оплати — у «Чекають видачі»
+  // він світиться як неоплачений. Номер покупцю не віддаємо: поки гроші не
+  // внесені, ним можна було б записатись на МК безкоштовно.
+  if (payMethod === 'cash') {
+    try {
+      const clientFullName = await findOrCreateClient(
+        name, surname, phone, instagram, spreadsheetId, email,
+      )
+      await createCertificateRecord({
+        buyerName: clientFullName,
+        buyerPhone: phone,
+        buyerInstagram: instagram,
+        peopleCount,
+        mkType: isGroup ? MK_TYPE_GROUP : MK_TYPE_INDIVIDUAL,
+        price,
+        certCode,
+        kind: 'паперовий',
+        paid: false,
+      }, spreadsheetId)
+      console.log(`[buy-certificate] ✅ сертифікат ${certCode} відкладено під готівку`)
+    } catch (err) {
+      console.error('[buy-certificate] ❌ cash save:', err)
+      return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
+    }
+
+    // TODO (окрема розмова про листи): sendCertificateOrderCash покупцю
+    // (готовий лист без номера) і сповіщення студії через lib/mailer.ts.
+
+    return NextResponse.json({ success: true, cash: true, price, mkLabel, peopleCount })
+  }
 
   // ── Тест-режим (тільки localhost) ──────────────────────────────────────────
   if (skipPayment && process.env.NODE_ENV === 'development') {

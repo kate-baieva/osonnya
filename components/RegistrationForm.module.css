@@ -300,3 +300,16 @@
   color: #9b6b3a;
   white-space: nowrap;
 }
+
+/* Нагадування про готівку під сумою: людина нічого не платить онлайн,
+   тож сума без цього пояснення читається як «зараз буде оплата» */
+.payCashNote {
+  font-size: 0.82rem;
+  color: #55704a;
+  line-height: 1.5;
+  border-top: 1px dashed #e8d9cc;
+  padding-top: 0.6rem;
+  margin-top: 0.2rem;
+}
+
+.payCashNote strong { color: #43632f; }
