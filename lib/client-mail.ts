@@ -302,6 +302,8 @@ export interface CertificateEmail {
   isGroup: boolean
   /** PNG сертифіката. Є лише в електронного — паперовий забирають у студії. */
   imageBuffer?: Buffer
+  /** Купили в студії й забрали одразу — кликати по нього не треба */
+  inHand?: boolean
 }
 
 export async function sendCertificateToBuyer(data: CertificateEmail): Promise<void> {
@@ -322,6 +324,9 @@ export async function sendCertificateToBuyer(data: CertificateEmail): Promise<vo
     ? paragraph('Дякуємо за покупку! Ваш сертифікат знаходиться у вкладенні до цього '
       + 'листа. Сертифікат можна надіслати у подарунок в електронному вигляді, '
       + 'або роздрукувати.')
+    : data.inHand
+    ? paragraph('Дякуємо за покупку! Сертифікат уже у вас на руках — цей лист '
+      + 'лише для того, щоб його дані завжди були під рукою.')
     : [
       paragraph('Дякуємо за покупку! Ми підготуємо паперовий сертифікат, і його '
         + 'можна буде забрати в студії.'),
@@ -329,8 +334,8 @@ export async function sendCertificateToBuyer(data: CertificateEmail): Promise<vo
         + 'місце на майстер-класі, а сам сертифікат забрати пізніше, коли буде зручно.'),
     ].join('')
 
-  // У паперового — ще й графік, коли його забрати
-  const pickup = isDigital ? '' : [
+  // Графік видачі потрібен лише тому, хто ще не отримав сертифікат на руки
+  const pickup = isDigital || data.inHand ? '' : [
     factsTable([
       { label: 'Де забрати', value: studio.address },
       { label: 'Коли', value: 'Пт–Нд, 12:00–14:00 та 16:00–18:00' },
@@ -369,13 +374,15 @@ export async function sendCertificateToBuyer(data: CertificateEmail): Promise<vo
 
   await send({
     to: data.to,
-    subject: isDigital
+    subject: isDigital || data.inHand
       ? `Ваш сертифікат №${data.certCode} — ${studio.name}`
       : `Ваш сертифікат №${data.certCode} чекає на вас у студії — ${studio.name}`,
     html: layout({
       studio,
       heading: isDigital
         ? 'Сертифікат готовий — він у вкладенні'
+        : data.inHand
+        ? 'Ваш сертифікат'
         : 'Сертифікат готовий — чекає на вас у студії',
       content,
       legal: [{ label: 'Публічний договір', path: '/public-contract' }],

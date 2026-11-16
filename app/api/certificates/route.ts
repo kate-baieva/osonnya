@@ -1,7 +1,71 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { getCertificates, getNextNumber, markIssued, sellCertificate, PAPER, DIGITAL } from '@/lib/certificates'
-import { STUDIOS } from '@/lib/studios'
+import { STUDIOS, getSpreadsheetId, getStudio } from '@/lib/studios'
+import { findOrCreateClient } from '@/lib/google-sheets'
+import { sendCertificateToBuyer, safeSend } from '@/lib/client-mail'
+import { renderCertificateImage } from '@/lib/certificate-image'
+
+
+// Лист покупцеві сертифіката, купленого в студії. Нічого з того, що тут
+// станеться, не має ламати сам продаж: сертифікат уже записаний у таблицю,
+// гроші взяті, і помилка пошти цього не скасовує.
+async function sendToBuyer(data: {
+  studioId: string
+  email: string
+  phone: string
+  client: string
+  mkType: string
+  people: number
+  amount: number
+  type: string
+  certCode: string
+}): Promise<void> {
+  const studio = getStudio(data.studioId)
+  if (!studio) return
+
+  const isGroup = data.mkType.toLowerCase().includes('груповий')
+  const expiresAt = new Date()
+  expiresAt.setMonth(expiresAt.getMonth() + 3)
+
+  // Контакт зберігаємо окремо: наступного разу пошта знайдеться сама
+  try {
+    const parts = data.client.trim().split(/\s+/)
+    await findOrCreateClient(
+      parts[0] ?? '', parts.slice(1).join(' '), data.phone,
+      undefined, getSpreadsheetId(data.studioId), data.email,
+    )
+  } catch (error) {
+    console.warn('[api/certificates] контакт не збережено:', (error as Error).message)
+  }
+
+  let imageBuffer: Buffer | undefined
+  if (data.type === DIGITAL) {
+    try {
+      imageBuffer = await renderCertificateImage({
+        certCode: data.certCode, peopleCount: data.people, isGroup, expiresAt,
+        instagram: studio.instagramHandle,
+      })
+    } catch (error) {
+      // Без картинки лист усе одно корисний — у ньому є номер
+      console.warn('[api/certificates] картинка не зібралась:', (error as Error).message)
+    }
+  }
+
+  await safeSend('сертифікат покупцю', () => sendCertificateToBuyer({
+    studioId: data.studioId,
+    to: data.email,
+    certCode: data.certCode,
+    mkTypeLabel: data.mkType,
+    isGroup,
+    peopleCount: data.people,
+    price: data.amount,
+    expiresAt,
+    imageBuffer,
+    // Паперовий, куплений у студії, людина забирає тієї ж миті
+    inHand: data.type !== DIGITAL,
+  }))
+}
 
 async function resolve(request: Request, bodyStudio?: string) {
   const session = await getSession()
@@ -71,12 +135,23 @@ export async function POST(request: Request) {
       if (people < 1) return NextResponse.json({ error: 'Вкажіть кількість учасників' }, { status: 400 })
       if (amount <= 0) return NextResponse.json({ error: 'Вкажіть суму' }, { status: 400 })
 
+      const type = body.type === DIGITAL ? DIGITAL : PAPER
       const created = await sellCertificate(studioId, {
         client, amount, people, mkType,
         account: String(body.account ?? 'Готівка студія'),
-        type: body.type === DIGITAL ? DIGITAL : PAPER,
+        type,
       })
-      return NextResponse.json(created)
+
+      const email = String(body.email ?? '').trim()
+      if (email) {
+        await sendToBuyer({
+          studioId, email, phone: String(body.phone ?? '').trim(),
+          client, mkType, people, amount, type,
+          certCode: created.number,
+        })
+      }
+
+      return NextResponse.json({ ...created, emailed: Boolean(email) })
     }
 
     return NextResponse.json({ error: 'Невідома дія' }, { status: 400 })

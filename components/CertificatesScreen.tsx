@@ -117,8 +117,11 @@ export default function CertificatesScreen({
       <SellForm
         studioId={studioId}
         nextNumber={nextNumber}
-        onSold={(number, dueDate) => {
-          setNotice(`Сертифікат № ${number} видано. Діє до ${dueDate}.`)
+        onSold={(number, dueDate, emailed) => {
+          // Майстриня має бачити, пішов лист чи ні: без пошти доведеться
+          // продиктувати номер уголос
+          setNotice(`Сертифікат № ${number} видано. Діє до ${dueDate}.`
+            + (emailed ? ' Лист покупцю надіслано.' : ' Пошти немає — лист не надсилали.'))
           load(studioId)
         }}
         onError={setError}
@@ -135,7 +138,7 @@ function SellForm({
 }: {
   studioId: string
   nextNumber: string
-  onSold: (number: string, dueDate: string) => void
+  onSold: (number: string, dueDate: string, emailed: boolean) => void
   onError: (message: string) => void
 }) {
   const [prices, setPrices] = useState<IndividualPrice[]>([])
@@ -188,7 +191,7 @@ function SellForm({
       const json = await res.json()
       if (!res.ok) { onError(json.error ?? 'Не вдалося зберегти'); return }
       setName(''); setSurname(''); setPhone(''); setEmail('')
-      onSold(json.number, json.dueDate)
+      onSold(json.number, json.dueDate, Boolean(json.emailed))
     } catch {
       onError("Немає з'єднання")
     } finally {
