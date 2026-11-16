@@ -118,9 +118,14 @@ export default function CertificatesScreen({
                     if (!confirm(question)) return
                     const done = await send({ action: 'issue', rowIndex: cert.rowIndex })
                     if (done) {
+                      // Без пошти в «Clients» лист не піде — краще сказати це
+                      // одразу, ніж лишити людину без номера сертифіката
                       setNotice(done.paidNow > 0
                         ? `Сертифікат № ${cert.number} видано.`
                           + ` Оплату ${money(done.paidNow)} записано (Готівка студія).`
+                          + (done.emailed
+                            ? ' Лист із номером надіслано покупцю.'
+                            : ' Пошти покупця немає — номер продиктуйте самі.')
                         : `Сертифікат № ${cert.number} позначено як виданий`)
                     }
                   }}

@@ -157,7 +157,16 @@ export const CASH_ACCOUNT = 'Готівка студія'
 export async function issueCertificate(
   studioId: string,
   rowIndex: number,
-): Promise<{ number: string; client: string; amount: number; paidNow: number }> {
+): Promise<{
+  number: string
+  client: string
+  amount: number
+  people: number
+  isGroup: boolean
+  /** Дата «діє до» вже розібрана — у таблиці вона рядком M/D/YYYY */
+  expiresAt: Date | null
+  paidNow: number
+}> {
   const spreadsheetId = getSpreadsheetId(studioId)
   const [map, list] = await Promise.all([
     columnMap(spreadsheetId),
@@ -198,10 +207,17 @@ export async function issueCertificate(
     requestBody: { valueInputOption: 'USER_ENTERED', data },
   })
 
+  const due = dueTime(cert.dueDate)
+
   return {
     number: cert.number,
     client: cert.client,
     amount: cert.amount,
+    people: cert.people,
+    // В аркуші лежить значення списку (group / individual), а не людиночитна
+    // назва формату: парний МК не відрізнити від індивідуального
+    isGroup: normalize(cert.mkType) === 'group',
+    expiresAt: due > 0 ? new Date(due) : null,
     paidNow: unpaid ? cert.amount : 0,
   }
 }

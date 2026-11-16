@@ -5,7 +5,7 @@ import { createCertificateRecord, findOrCreateClient, getAllMkPrices, getNextCer
 import { resolveCertificatePrice } from '@/lib/pricing'
 import { MK_TYPE_GROUP, MK_TYPE_INDIVIDUAL } from '@/lib/mk-type'
 import { sendPaperCertNotification, sendDigitalCertEmail } from '@/lib/mailer'
-import { sendCertificateToBuyer, safeSend } from '@/lib/client-mail'
+import { sendCertificateToBuyer, sendCertificateOrderCash, safeSend } from '@/lib/client-mail'
 import { renderCertificateImage } from '@/lib/certificate-image'
 import { getStudio, getSpreadsheetId } from '@/lib/studios'
 
@@ -115,13 +115,26 @@ export async function POST(req: NextRequest) {
         paid: false,
       }, spreadsheetId)
       console.log(`[buy-certificate] ✅ сертифікат ${certCode} відкладено під готівку`)
+
+      // Покупцю — підтвердження замовлення. Номера сертифіката в цьому листі
+      // немає навмисно: поки гроші не внесені, ним можна було б записатись
+      // на МК безкоштовно. Номер піде наступним листом, після видачі.
+      await safeSend('замовлення сертифіката готівкою', () => sendCertificateOrderCash({
+        studioId, to: email, mkTypeLabel: mkLabel, isGroup,
+        peopleCount, price, expiresAt: certExpiry(),
+      }))
+
+      // Студії — те саме сповіщення, що й для паперового, купленого карткою.
+      // Що сертифікат ще не оплачений, видно в «Чекають видачі».
+      sendPaperCertNotification({
+        certCode, mkType: mkLabel, peopleCount, price,
+        buyerName: clientFullName, buyerPhone: phone, buyerInstagram: instagram,
+        studioName: studio.name,
+      }).catch((e) => console.warn('[buy-certificate] сповіщення студії не пішло:', e))
     } catch (err) {
       console.error('[buy-certificate] ❌ cash save:', err)
       return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
     }
-
-    // TODO (окрема розмова про листи): sendCertificateOrderCash покупцю
-    // (готовий лист без номера) і сповіщення студії через lib/mailer.ts.
 
     return NextResponse.json({ success: true, cash: true, price, mkLabel, peopleCount })
   }

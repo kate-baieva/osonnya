@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { getCertificates, getNextNumber, issueCertificate, sellCertificate, PAPER, DIGITAL } from '@/lib/certificates'
 import { STUDIOS, getSpreadsheetId, getStudio } from '@/lib/studios'
-import { findOrCreateClient } from '@/lib/google-sheets'
+import { findClientEmail, findOrCreateClient } from '@/lib/google-sheets'
 import { sendCertificateToBuyer, safeSend } from '@/lib/client-mail'
 import { renderCertificateImage } from '@/lib/certificate-image'
 
@@ -123,12 +123,34 @@ export async function POST(request: Request) {
       // Видача готівкового сертифіката заразом записує й оплату
       const issued = await issueCertificate(studioId, rowIndex)
 
-      // TODO (окрема розмова про листи): якщо issued.paidNow > 0 —
-      // sendCertificateToBuyer з `inHand: true` (сертифікат уже на руках).
-      // Для куплених карткою лист пішов ще в мить оплати, тож не дублювати.
-      // Пошту брати з «Clients» за іменем, як це робить findClientEmail.
+      // Щойно оплачений готівкою — аж тепер можна віддати номер. Куплений
+      // карткою такий лист отримав ще в мить оплати, тож не дублюємо.
+      // Пошти в аркуші сертифікатів немає, вона лежить у «Clients».
+      let emailed = false
+      // Окремою змінною: усередині колбека TypeScript звужений тип губить
+      const expiresAt = issued.expiresAt
+      if (issued.paidNow > 0 && expiresAt) {
+        const email = await findClientEmail(issued.client, getSpreadsheetId(studioId))
+        if (email) {
+          emailed = true
+          await safeSend('сертифікат покупцю після видачі', () => sendCertificateToBuyer({
+            studioId,
+            to: email,
+            certCode: issued.number,
+            // В аркуші лише group / individual — людиночитної назви формату
+            // («Парний МК») там немає, тож пишемо загальну
+            mkTypeLabel: issued.isGroup ? 'Груповий МК' : 'Індивідуальний МК',
+            isGroup: issued.isGroup,
+            peopleCount: issued.people,
+            price: issued.amount,
+            expiresAt,
+            // Сертифікат уже на руках — кликати по нього в студію не треба
+            inHand: true,
+          }))
+        }
+      }
 
-      return NextResponse.json({ ok: true, ...issued })
+      return NextResponse.json({ ok: true, ...issued, emailed })
     }
 
     if (body.action === 'sell') {

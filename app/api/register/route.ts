@@ -84,6 +84,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const cashAmount = peopleCount * studio.pricePerPerson
+
     try {
       // Одноразовість: перевіряємо просто перед записом, щоб вікно між
       // перевіркою й записом було якнайкоротшим
@@ -105,18 +107,29 @@ export async function POST(req: NextRequest) {
         status: 'booked',
         pricePerPerson: studio.pricePerPerson,
       }, spreadsheetId)
+
+      // Оплати не було, тож вебхук сюди не прийде — лист шлемо самі.
+      // `cash` підписує борг як домовленість, а не як недоплату.
+      const when = parseMkDatetime(slot.datetime)
+      if (when) {
+        await safeSend('підтвердження запису готівкою', () => sendBookingConfirmation({
+          studioId,
+          to: email,
+          clientFullName,
+          mkDate: when.date,
+          mkTime: when.time,
+          peopleCount,
+          paid: 0,
+          due: cashAmount,
+          cash: true,
+        }))
+      }
     } catch (err) {
       console.error('[POST /api/register] ❌ cash save:', err)
       return NextResponse.json({ error: 'Помилка збереження. Спробуйте ще раз.' }, { status: 500 })
     }
 
-    // TODO (окрема розмова про листи): sendBookingConfirmation із `cash: true`
-    // і `due` = сума запису — лист уже вміє підписувати борг як домовленість.
-
-    return NextResponse.json({
-      success: true,
-      cash: { amount: peopleCount * studio.pricePerPerson },
-    })
+    return NextResponse.json({ success: true, cash: { amount: cashAmount } })
   }
 
   // ─── Оплата з сертифікатом ────────────────────────────────────────────────
