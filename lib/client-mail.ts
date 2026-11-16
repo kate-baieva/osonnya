@@ -209,6 +209,12 @@ export interface BookingConfirmation {
   certificateCode?: string
   promoCode?: string
   promoPercent?: number
+  /**
+   * Домовленість платити готівкою в студії. Рядок із боргом тоді не докір,
+   * а нагадування принести гроші, — тож його треба підписати, інакше
+   * «Лишається доплатити» читається як недоплата.
+   */
+  cash?: boolean
 }
 
 export async function sendBookingConfirmation(data: BookingConfirmation): Promise<void> {
@@ -240,7 +246,12 @@ export async function sendBookingConfirmation(data: BookingConfirmation): Promis
     note: data.due && data.due > 0 ? '(передоплата)' : undefined,
   })
   if (data.due && data.due > 0) {
-    payment.push({ label: 'Лишається доплатити', value: money(data.due), big: true })
+    payment.push({
+      label: 'Лишається доплатити',
+      value: money(data.due),
+      note: data.cash ? 'оплата готівкою' : undefined,
+      big: true,
+    })
   }
 
   const content = [
@@ -397,6 +408,68 @@ export async function sendCertificateToBuyer(data: CertificateEmail): Promise<vo
   })
 }
 
+// ─── Сертифікат замовлено, гроші в студії ───────────────────────────────────
+
+export interface CertificateOrderCash {
+  studioId: string
+  to: string
+  /** Людиночитна назва формату: «Груповий МК», «Парний МК» */
+  mkTypeLabel: string
+  isGroup: boolean
+  peopleCount: number
+  price: number
+  expiresAt: Date
+}
+
+/**
+ * Сертифікат відкладено, гроші візьмуть у студії при отриманні.
+ *
+ * **Номера тут немає навмисно.** Поки гроші не внесені, номером можна було б
+ * записатись на майстер-клас — тобто отримати заняття безкоштовно. Номер
+ * покупець дізнається з наступного листа, коли забере сертифікат.
+ *
+ * З тієї ж причини немає й пояснення, як сертифікатом користуватись:
+ * користуватись поки нема чим.
+ */
+export async function sendCertificateOrderCash(data: CertificateOrderCash): Promise<void> {
+  const studio = getStudio(data.studioId)
+  if (!studio || !data.to) return
+
+  const facts: Fact[] = [
+    { label: 'Формат', value: data.mkTypeLabel },
+    { label: 'Учасників', value: String(data.peopleCount) },
+    { label: 'Діє до', value: dateLong(data.expiresAt), note: '3 місяці' },
+    { label: 'До сплати готівкою', value: money(data.price), big: true },
+  ]
+
+  const content = [
+    paragraph('Дякуємо за замовлення! Ми відклали для вас паперовий сертифікат — '
+      + 'його можна забрати в студії, там же й розрахуватись готівкою.'),
+    factsTable(facts),
+    factsTable([
+      { label: 'Де забрати', value: studio.address },
+      { label: 'Коли', value: 'Пт–Нд, 12:00–14:00 та 16:00–18:00' },
+    ], false),
+    noteBlock('Не підходить цей графік?',
+      `Напишіть нам в Instagram ${igLink(studio)} — ми знайдемо спосіб передати `
+      + 'вам сертифікат в інший день та час.'),
+    paragraph('Номер сертифіката ми надішлемо окремим листом, коли ви його '
+      + 'заберете — саме з того моменту ним можна буде записатись на майстер-клас.'),
+    `<p style="margin:15px 0 0;">До зустрічі,<br>команда Осоння</p>`,
+  ].join('')
+
+  await send({
+    to: data.to,
+    subject: `Сертифікат відкладено для вас — ${studio.name}`,
+    html: layout({
+      studio,
+      heading: 'Сертифікат відкладено для вас',
+      content,
+      legal: [{ label: 'Публічний договір', path: '/public-contract' }],
+    }),
+  })
+}
+
 // ─── 4. Нагадування напередодні ─────────────────────────────────────────────
 
 export interface ReminderEmail {
@@ -410,6 +483,8 @@ export interface ReminderEmail {
   due?: number
   /** Підписане посилання на доплату карткою; без нього лишається готівка */
   payUrl?: string
+  /** Домовленість платити готівкою — підписуємо борг, щоб не лякав */
+  cash?: boolean
 }
 
 export async function sendReminder(data: ReminderEmail): Promise<void> {
@@ -430,7 +505,12 @@ export async function sendReminder(data: ReminderEmail): Promise<void> {
   const due = owing
     ? factsTable([
       { label: 'Сплачено', value: money(data.paid ?? 0) },
-      { label: 'Лишається доплатити', value: money(data.due!), big: true },
+      {
+        label: 'Лишається доплатити',
+        value: money(data.due!),
+        note: data.cash ? 'оплата готівкою' : undefined,
+        big: true,
+      },
     ], false)
     : ''
 
