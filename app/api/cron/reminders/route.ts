@@ -3,6 +3,7 @@ import { getOrders, markReminded, type Order } from '@/lib/orders'
 import { STUDIOS, getStudio } from '@/lib/studios'
 import { sendReminder, parseMkDatetime, safeSend, money } from '@/lib/client-mail'
 import { getTransport } from '@/lib/mailer'
+import { encodeMkPaymentLink } from '@/lib/mk-payment-link'
 
 // Нагадування напередодні майстер-класу. Розклад — у vercel.json, 18:00.
 //
@@ -84,6 +85,17 @@ export async function GET(request: Request) {
     const when = parseMkDatetime(order.mkDatetime)
     if (!when) continue
 
+    // Посилання на доплату потрібне лише боржникам. Суми в ньому немає —
+    // сторінка перерахує борг у мить відкриття, бо людина могла доплатити
+    // готівкою вже після того, як лист пішов.
+    const payUrl = order.debt > 0
+      ? `${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/pay?d=${encodeURIComponent(
+          encodeMkPaymentLink({
+            studio: studioId, client: order.client,
+            mkKey: order.mkKey, issued: Date.now(),
+          }))}`
+      : undefined
+
     let delivered = false
     await safeSend(`нагадування для «${order.client}»`, async () => {
       await sendReminder({
@@ -94,6 +106,7 @@ export async function GET(request: Request) {
         peopleCount: order.people,
         paid: order.paid,
         due: order.debt,
+        payUrl,
       })
       delivered = true
     })

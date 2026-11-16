@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         }).catch((e) => console.warn('[buy-certificate] email не надіслано:', e))
 
         await safeSend('паперовий сертифікат покупцю', () => sendCertificateToBuyer({
-          studioId, to: email, certCode, mkTypeLabel: mkLabel,
+          studioId, to: email, certCode, mkTypeLabel: mkLabel, isGroup,
           peopleCount, price, expiresAt: certExpiry(),
         }))
       } else {
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         }).catch((e) => console.warn('[buy-certificate] email не надіслано:', e))
 
         await safeSend('електронний сертифікат покупцю', () => sendCertificateToBuyer({
-          studioId, to: email, certCode, mkTypeLabel: mkLabel,
+          studioId, to: email, certCode, mkTypeLabel: mkLabel, isGroup,
           peopleCount, price, expiresAt: certExpiry(), imageBuffer,
         }))
       }

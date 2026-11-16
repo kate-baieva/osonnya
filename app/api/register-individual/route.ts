@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
         await safeSend('підтвердження запису', () => sendBookingConfirmation({
           studioId,
           to: email,
+          clientFullName,
           mkDate: when.date,
           mkTime: when.time,
           peopleCount,

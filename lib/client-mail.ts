@@ -198,6 +198,8 @@ export async function safeSend(what: string, task: () => Promise<void>): Promise
 export interface BookingConfirmation {
   studioId: string
   to: string
+  /** Ім'я із запису — майстриня звіряє за ним, хто прийшов */
+  clientFullName: string
   mkDate: Date
   mkTime: string
   peopleCount: number
@@ -214,6 +216,7 @@ export async function sendBookingConfirmation(data: BookingConfirmation): Promis
   if (!studio || !data.to) return
 
   const facts: Fact[] = [
+    { label: 'Запис на ім\'я', value: data.clientFullName },
     { label: 'Коли', value: dateTimeLong(data.mkDate, data.mkTime), big: true },
     { label: 'Де', value: `${studio.name},<br>${studio.address}` },
     { label: 'Учасників', value: String(data.peopleCount) },
@@ -243,6 +246,10 @@ export async function sendBookingConfirmation(data: BookingConfirmation): Promis
   const content = [
     paragraph('Дякуємо за запис на майстер-клас з ліплення з глини. Нижче лишаємо '
       + 'вам усю необхідну інформацію, яку потрібно знати перед початком.'),
+    noteBlock('Покажіть цей лист у студії перед майстер-класом',
+      'Він замінює квиток — майстриня звірить за ним ім\'я, на яке зроблено '
+      + 'запис, і відмітить, що ви прийшли. Роздруковувати не потрібно, '
+      + 'достатньо показати з телефона.'),
     factsTable(facts),
     factsTable(payment, false),
     button(studio.instagramHighlightsUrl, 'Локація'),
@@ -291,6 +298,8 @@ export interface CertificateEmail {
   peopleCount: number
   price: number
   expiresAt: Date
+  /** Груповий МК можна вибрати на сайті, індивідуальний — лише через студію */
+  isGroup: boolean
   /** PNG сертифіката. Є лише в електронного — паперовий забирають у студії. */
   imageBuffer?: Buffer
 }
@@ -331,14 +340,27 @@ export async function sendCertificateToBuyer(data: CertificateEmail): Promise<vo
       + 'вам сертифікат в інший день та час.'),
   ].join('')
 
+  // Групові МК стоять у розкладі, тож час вибирають на сайті самі.
+  // Індивідуальні в розкладі не живуть — час для них узгоджують зі студією,
+  // тому кнопки тут немає взагалі, щоб нікого не вести в глухий кут.
+  const useBlock = data.isGroup
+    ? [
+      noteBlock('Як ним скористатись',
+        'На сайті вибрати зручний час і ввести номер сертифіката замість оплати. '
+        + 'Записується той, хто піде на майстер-клас — не обов\'язково ви.'),
+      button(`${BASE_URL}${studio.basePath}`, 'Вибрати час майстер-класу →'),
+    ].join('')
+    : noteBlock('Як ним скористатись',
+      'Щоб підібрати час для індивідуального майстер-класу, напишіть нам '
+      + `у приватні повідомлення в Instagram ${igLink(studio)} — домовимось `
+      + 'про зручний день. Записується той, хто піде на майстер-клас — '
+      + 'не обов\'язково ви.')
+
   const content = [
     intro,
     factsTable(facts),
     pickup,
-    noteBlock('Як ним скористатись',
-      'На сайті вибрати зручний час і ввести номер сертифіката замість оплати. '
-      + 'Записується той, хто піде на майстер-клас — не обов\'язково ви.'),
-    button(`${BASE_URL}${studio.basePath}`, 'Вибрати час майстер-класу →'),
+    useBlock,
     paragraph('Якщо термін добігає кінця, а нагоди завітати до Осоння так і не '
       + 'випало — напишіть нам у відповідь на цей лист, або в Instagram '
       + `${igLink(studio)} — ми щось придумаємо.`),
@@ -379,6 +401,8 @@ export interface ReminderEmail {
   /** Скільки вже сплачено. Без передоплати — 0, і так і пишемо. */
   paid?: number
   due?: number
+  /** Підписане посилання на доплату карткою; без нього лишається готівка */
+  payUrl?: string
 }
 
 export async function sendReminder(data: ReminderEmail): Promise<void> {
@@ -395,18 +419,31 @@ export async function sendReminder(data: ReminderEmail): Promise<void> {
 
   // Є борг — показуємо обидва рядки. «Сплачено 0 грн» виглядає різкувато,
   // але це чесно: людина має побачити, що в студії платитиме всю суму.
-  const due = data.due && data.due > 0
+  const owing = Boolean(data.due && data.due > 0)
+  const due = owing
     ? factsTable([
       { label: 'Сплачено', value: money(data.paid ?? 0) },
-      { label: 'Лишається доплатити', value: money(data.due), big: true },
-      { label: '', value: `<span style="color:${COLORS.muted};">Оплатити можна в студії перед заняттям</span>` },
+      { label: 'Лишається доплатити', value: money(data.due!), big: true },
     ], false)
+    : ''
+
+  // Доплатити можна двома способами, і жоден не кращий за інший:
+  // кнопка для тих, кому зручніше заздалегідь, готівка — для решти.
+  const payBlock = owing
+    ? [
+      data.payUrl ? button(data.payUrl, `Оплатити ${money(data.due!)}`) : '',
+      `<p style="margin:15px 0 0; font-size:13.5px; color:${COLORS.muted};">
+        Платити заздалегідь не обов'язково — доплатити можна готівкою
+        в студії перед заняттям або карткою за цим посиланням просто
+        на майстер-класі.</p>`,
+    ].join('')
     : ''
 
   const content = [
     paragraph('Нагадуємо про ваш майстер-клас — він відбудеться вже завтра.'),
     factsTable(facts),
     due,
+    payBlock,
     paragraph('Приходьте, будь ласка, за 5 хвилин до початку, щоб підготуватися '
       + 'та визначитися з виробом, який будете ліпити.'),
     button(studio.instagramHighlightsUrl, 'Локація'),
